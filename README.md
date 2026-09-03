@@ -8,9 +8,9 @@ big help to email me your reviewers! so I can turn it into a quizbee, and you ca
 
 email: usagehose@gmail.com
 
-email me there:
+email me there okie goodbye
 
-I'll set up a Kofi or Patreon maybe, so you can support
+it's all free because I used a template, also if I get lazy I may vibecode idk, I'm also learning how to code again along the way
 
 Current quizbee link
 
