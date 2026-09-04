@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Menu</title>
+<style>
+  :root{
+    --bg:#0E1420;
+    --panel:#161F2E;
+    --panel-edge:#243247;
+    --text:#E8EDF4;
+    --sub:#8CA0B8;
+    --cyan:#4FD8C8;
+    --amber:#F0A83A;
+    --wrong:#E15B5B;
+    --right:#4FD8C8;
+    --trace:#1C2A3D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(circle at 15% 10%, #172236 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #172a2a 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .label-mono{ font-family: 'Consolas', 'SF Mono', monospace; letter-spacing:0.02em; }
+  #app{ width:100%; max-width:560px; }
+
+  .trace-row{ display:flex; align-items:center; gap:6px; margin-bottom:18px; opacity:0.7; }
+  .trace-row .node{ width:6px; height:6px; border-radius:50%; background:var(--cyan); flex-shrink:0; }
+  .trace-row .line{ height:1px; flex:1; background:var(--trace); }
+
+  .panel-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:36px 32px; position:relative; }
+  .panel-card::before{ content:""; position:absolute; top:0; left:0; width:34px; height:34px; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .panel-card::after{ content:""; position:absolute; bottom:0; right:0; width:34px; height:34px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+
+  .kicker{ font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--cyan); letter-spacing:0.08em; margin-bottom:10px; }
+  h1{ font-size:27px; font-weight:600; line-height:1.3; margin-bottom:8px; }
+  .lede{ color:var(--sub); font-size:14.5px; line-height:1.6; margin-bottom:26px; }
+
+  .crumbs{ font-family:'Consolas','SF Mono',monospace; font-size:12px; color:var(--sub); margin-bottom:20px; }
+  .crumbs span.on{ color:var(--cyan); }
+
+  .menu-grid{ display:flex; flex-direction:column; gap:10px; margin-bottom:22px; }
+  .menu-grid.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  .menu-btn{
+    background:var(--trace); border:1px solid var(--panel-edge); color:var(--text);
+    padding:15px 16px; border-radius:3px; text-align:left; font-size:14.5px;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .menu-btn:hover{ border-color:var(--cyan); background:#20304a; }
+  .menu-btn.all-lessons{ border-color:var(--amber); color:var(--amber); font-weight:600; }
+  .menu-btn.all-lessons:hover{ background:rgba(240,168,58,0.12); }
+  .menu-btn .count{ display:block; font-family:'Consolas','SF Mono',monospace; font-size:11.5px; color:var(--sub); margin-top:3px; }
+
+  .back-link{
+    background:transparent; color:var(--sub); font-size:13px; font-family:'Consolas','SF Mono',monospace;
+    padding:6px 0; margin-bottom:18px; display:inline-flex; align-items:center; gap:6px;
+  }
+  .back-link:hover{ color:var(--cyan); }
+
+  .btn-primary{ background:var(--cyan); color:#0B1119; font-weight:700; font-size:15.5px; padding:14px 22px; border-radius:3px; width:100%; transition:transform 0.12s ease, background 0.12s ease; }
+  .btn-primary:hover{ background:#69E4D6; }
+  .btn-primary:active{ transform:scale(0.98); }
+  .btn-primary:disabled{ opacity:0.4; cursor:default; }
+
+  .empty-note{
+    font-family:'Consolas','SF Mono',monospace; font-size:13px; color:var(--wrong);
+    background:rgba(225,91,91,0.1); border:1px solid rgba(225,91,91,0.3);
+    padding:12px 14px; border-radius:3px; margin-bottom:20px;
+  }
+
+  /* ---------- Quiz screen (same engine as before) ---------- */
+  .quiz-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:26px 26px 30px; }
+  .top-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--sub); }
+  .section-tag{ color:var(--amber); }
+  .progress-track{ height:4px; background:var(--trace); border-radius:2px; margin-bottom:22px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--cyan); border-radius:2px; transition:width 0.3s ease; }
+  .timer-wrap{ display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .timer-track{ flex:1; height:6px; background:var(--trace); border-radius:3px; overflow:hidden; }
+  .timer-fill{ height:100%; background:var(--amber); width:100%; transition:width 1s linear, background 0.3s ease; }
+  .timer-num{ font-family:'Consolas','SF Mono',monospace; font-size:13px; color:var(--sub); width:24px; text-align:right; }
+  .q-text{ font-size:19px; line-height:1.45; font-weight:600; margin-bottom:22px; min-height:52px; }
+
+  .options{ display:flex; flex-direction:column; gap:10px; }
+  .opt{ display:flex; align-items:center; gap:12px; background:var(--trace); border:1px solid transparent; border-radius:3px; padding:14px 16px; text-align:left; font-size:14.5px; color:var(--text); transition:border-color 0.15s ease, background 0.15s ease; }
+  .opt:hover:not(:disabled){ border-color:var(--panel-edge); background:#20304a; }
+  .opt .tag{ font-family:'Consolas','SF Mono',monospace; font-size:12px; color:var(--sub); width:16px; flex-shrink:0; }
+  .opt.correct{ background:rgba(79,216,200,0.15); border-color:var(--right); }
+  .opt.wrong{ background:rgba(225,91,91,0.15); border-color:var(--wrong); }
+  .opt:disabled{ cursor:default; }
+  .opt.dim{ opacity:0.45; }
+
+  .type-wrap{ display:flex; flex-direction:column; gap:12px; }
+  .type-input{ background:var(--trace); border:1px solid var(--panel-edge); border-radius:3px; padding:14px 16px; font-size:15px; color:var(--text); font-family:inherit; }
+  .type-input:focus{ outline:none; border-color:var(--cyan); }
+  .type-input.correct{ border-color:var(--right); background:rgba(79,216,200,0.12); }
+  .type-input.wrong{ border-color:var(--wrong); background:rgba(225,91,91,0.12); }
+  .type-feedback{ font-family:'Consolas','SF Mono',monospace; font-size:13px; min-height:16px; }
+  .type-feedback.correct{ color:var(--right); }
+  .type-feedback.wrong{ color:var(--wrong); }
+
+  .streak-note{ margin-top:16px; font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--cyan); min-height:16px; }
+
+  .end-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:38px 34px; text-align:center; }
+  .score-big{ font-size:56px; font-weight:700; color:var(--cyan); line-height:1; margin:6px 0 4px; }
+  .score-sub{ color:var(--sub); font-size:14px; margin-bottom:26px; }
+  .breakdown{ display:flex; flex-direction:column; gap:8px; margin-bottom:28px; text-align:left; }
+  .breakdown .row{ display:flex; justify-content:space-between; padding:10px 14px; background:var(--trace); border-radius:3px; font-size:13.5px; }
+  .breakdown .row span:last-child{ font-family:'Consolas','SF Mono',monospace; color:var(--sub); }
+  .btn-secondary{ background:transparent; border:1px solid var(--panel-edge); color:var(--text); padding:13px 20px; border-radius:3px; width:100%; font-size:14.5px; margin-top:10px; }
+  .btn-secondary:hover{ border-color:var(--cyan); }
+
+  @media (max-width:480px){
+    .panel-card, .quiz-card, .end-card{ padding:26px 20px; }
+    h1{ font-size:22px; }
+    .q-text{ font-size:17px; }
+    .score-big{ font-size:46px; }
+    .menu-grid.cols2{ grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+const TERMS = ["Term 1","Term 2","Term 3"];
+const SUBJECTS = ["General Math","General Science","Physics","Finite Mathematics","Empowerment Technologies"];
+const LESSON_NUMBERS = Array.from({length:12}, (_,i)=>i+1); // Lesson 1 .. Lesson 12
+
+const TIME_LIMIT = 20; // default seconds per question (override per-question with "time: N")
+const QUIZ_LENGTH = 20; // max questions for a single lesson quiz — random subset if the lesson has more
+const ALL_LESSONS_LENGTH = 50; // max questions when "All Lessons" is picked — random subset if combined pool has more
+const LETTERS = ["A","B","C","D","E","F"];
+
+// Build the empty skeleton — Term -> Subject -> "Lesson N" -> []
+const QUESTIONS_DB = {};
+TERMS.forEach(term=>{
+  QUESTIONS_DB[term] = {};
+  SUBJECTS.forEach(subject=>{
+    QUESTIONS_DB[term][subject] = {};
+    LESSON_NUMBERS.forEach(n=>{
+      QUESTIONS_DB[term][subject]["Lesson "+n] = [];
+    });
+  });
+});
+
+/*========================================================================= */
+                       /*GENERAL MATHEMATICS*/
+/*========================================================================= */
+
+/*========================================================================= */
+                         /*GENERAL SCIENCE*/
+/*========================================================================= */
+
+/*========================================================================= */
+                            /*PHYSICS*/
+/*========================================================================= */
+
+  QUESTIONS_DB["Term 1"]["Physics"]["Lesson 1"] = [
+  { type:"mc", q:"Who discovered the lever principle and buoyancy?", opts:["Galileo Galilei","Archimedes","Albert Einstein","Henri Becquerel"], correct:1 },
+  { type:"mc", q:"Which principle explains how objects experience an upward force when immersed in a fluid?", opts:["Photoelectric Effect","Lever Principle","Archimedes' Principle","Relativity"], correct:2 },
+  { type:"mc", q:"What did Galileo Galilei discover about falling bodies?", opts:["Heavier objects fall faster","Bodies fall at the same rate regardless of mass","Objects do not fall without air resistance","Light falls at the speed of sound"], correct:1 },
+  { type:"mc", q:"Who accidentally discovered radioactivity from uranium?", opts:["Henri Becquerel","Archimedes","Gregorio Zara","Albert Einstein"], correct:0 },
+  { type:"mc", q:"What equation represents the energy of a photon?", opts:["E = mc²","E = hf","F = ma","P = mv"], correct:1 },
+  { type:"mc", q:"Who explained the photoelectric effect using the idea of photons?", opts:["Galileo Galilei","Henri Becquerel","Albert Einstein","Archimedes"], correct:2 },
+  { type:"mc", q:"Which sequence best describes how scientific discoveries contribute to career demand?", opts:["Career Demand → Discovery → Technology","Technology → Career Demand → Discovery","Scientific Discovery → Technological Application → Career Demand","Technology → Discovery → Career Demand"], correct:2 },
+  { type:"mc", q:"Which technology relies on light amplification?", opts:["Computers","Lasers","Microwaves","Incubators"], correct:1 },
+  { type:"mc", q:"Which of the following is an application of lasers?", opts:["Mapping rock layers","Cutting steel","Studying quarks","Regulating newborn temperature"], correct:1 },
+  { type:"mc", q:"Computers were built partly on advancements in which materials and technologies?", opts:["Thin films, magnetic materials, and semiconductors","Bamboo, wood, and glass","Levers and pulleys","Radioactive uranium only"], correct:0 },
+  { type:"mc", q:"What research helped lead to microwaves and materials technologies?", opts:["Radar and miniature electronics research","Astronomical observations","Nuclear medicine only","Study of falling bodies"], correct:0 },
+  { type:"mc", q:"Which Filipino innovator invented the Sing-Along System, commonly associated with karaoke?", opts:["Gregorio Zara","Eduardo San Juan","Roberto del Rosario","Fe del Mundo"], correct:2 },
+  { type:"mc", q:"What was Roberto del Rosario's main physics focus?", opts:["Mechanical Engineering","Sound Waves & Electromagnetism","Heat Transfer","Particle Physics"], correct:1 },
+  { type:"mc", q:"Who invented a videophone prototype in 1962?", opts:["Roberto del Rosario","Gregorio Zara","Eduardo San Juan","Fe del Mundo"], correct:1 },
+  { type:"mc", q:"What did Gregorio Zara's videophone prototype allow callers to do?", opts:["Measure temperature remotely","See each other onscreen","Control a lunar rover","Detect radioactivity"], correct:1 },
+  { type:"mc", q:"Who contributed to the design of the lunar rover used during the 1971 NASA Moon exploration?", opts:["Eduardo San Juan","Gregorio Zara","Roberto del Rosario","Henri Becquerel"], correct:0 },
+  { type:"mc", q:"What field was Eduardo San Juan associated with?", opts:["Heat Transfer","Mechanical Engineering","Sound Waves","Astrophysics"], correct:1 },
+  { type:"mc", q:"Who devised a low-cost bamboo incubator?", opts:["Fe del Mundo","Gregorio Zara","Roberto del Rosario","Marie Curie"], correct:0 },
+  { type:"mc", q:"What physics concept did the bamboo incubator apply?", opts:["Thermodynamics and heat transfer","Particle acceleration","Buoyancy","Photoelectric effect"], correct:0 },
+  { type:"mc", q:"Which career cluster focuses on macro scale phenomena and fundamental particle interactions?", opts:["Healthcare, Education & Communication","Technology, Systems & Data","Earth, Space & Research","Business & Finance"], correct:2 },
+  { type:"mc", q:"Which career cluster involves programming, complex systems, and materials engineering?", opts:["Technology, Systems & Data","Earth, Space & Research","Healthcare, Education & Communication","Arts & Design"], correct:0 },
+  { type:"mc", q:"Which career focuses on celestial objects and surrounding space?", opts:["Geophysicist","Astrophysicist","Data Scientist","Quality Control Analyst"], correct:1 },
+  { type:"mc", q:"Which agencies or organizations are associated with astrophysicists?", opts:["PHIVOLCS and DENR","PhilSA and NASA","DOST and PNRI","CERN and FPRDI"], correct:1 },
+  { type:"mc", q:"Which career studies the physical properties of Earth and natural resources?", opts:["Astrophysicist","Particle Physicist","Geophysicist","Solar Engineer"], correct:2 },
+  { type:"mc", q:"Which agencies are associated with geophysicists?", opts:["PHIVOLCS and DENR","NASA and PhilSA","CERN and PAGASA","PNRI and ASTI"], correct:0 },
+  { type:"mc", q:"Which career studies quarks, leptons, and bosons using particle accelerators?", opts:["Systems Analyst","Particle Physicist","Geophysicist","Solar Engineer"], correct:1 },
+  { type:"mc", q:"Where is CERN, a major organization associated with particle physics, located?", opts:["Japan","Switzerland","Philippines","United States"], correct:1 },
+  { type:"mc", q:"Which career analyzes vast amounts of data to solve complex problems?", opts:["Data Scientist","Observatory Researcher","Solar Engineer","Strength of Materials Analyst"], correct:0 },
+  { type:"mc", q:"Which career develops and installs renewable solar energy technologies?", opts:["Quality Control Analyst","Solar Engineer","Particle Physicist","Systems Analyst"], correct:1 },
+  { type:"mc", q:"Which career performs physical measurements to ensure manufactured products meet defect-free standards?", opts:["Quality Control Analyst","Astrophysicist","Geophysicist","Data Scientist"], correct:0 },
+
+  { type:"type", q:"Who discovered the lever principle and buoyancy?", answers:["Archimedes"] },
+  { type:"type", q:"Who discovered radioactivity from uranium?", answers:["Henri Becquerel","Becquerel"] },
+  { type:"type", q:"What equation represents the energy of a photon?", answers:["E = hf","E=hf"] },
+  { type:"type", q:"Who invented the Sing-Along System associated with karaoke?", answers:["Roberto del Rosario","Roberto Del Rosario"] },
+  { type:"type", q:"Who invented the videophone prototype in 1962?", answers:["Gregorio Zara"] },
+  { type:"type", q:"Who contributed to the design of the lunar rover used in the 1971 NASA Moon exploration?", answers:["Eduardo San Juan"] },
+  { type:"type", q:"Who devised the low-cost bamboo incubator?", answers:["Fe del Mundo","Dr. Fe del Mundo"] },
+  { type:"type", q:"Which career studies minute elementary particles such as quarks, leptons, and bosons?", answers:["Particle Physicist","Particle physicist"] },
+  { type:"type", q:"Which career studies the physical properties of Earth and natural resources?", answers:["Geophysicist"] },
+  { type:"type", q:"Which career focuses on observing and analyzing data from celestial objects and surrounding space?", answers:["Astrophysicist"] }
+];
+  QUESTIONS_DB["Term 1"]["Physics"]["Lesson 2"] = [
+  { type:"mc", q:"What is measurement?", opts:["The process of estimating values","The art of comparing unknown values to a standard","The process of converting units","A type of physical quantity"], correct:1 },
+  { type:"mc", q:"What are units?", opts:["Numbers without measurements","The standard in which physical quantities are expressed","The estimated digits in a measurement","Conversion factors"], correct:1 },
+  { type:"mc", q:"What is a physical quantity?", opts:["Something that cannot be measured","A number without a unit","Something measurable that consists of a magnitude","A conversion factor"], correct:2 },
+  { type:"mc", q:"What is the magnitude of a measurement?", opts:["Only its numerical value","Only its unit","A number and a unit","A conversion factor"], correct:2 },
+  { type:"mc", q:"In the measurement 4.5 m, what is the number?", opts:["m","4.5","meter","4.5 m"], correct:1 },
+  { type:"mc", q:"Which type of physical quantity consists of basic quantities that are independent of one another?", opts:["Derived quantities","Fundamental quantities","Converted quantities","Estimated quantities"], correct:1 },
+  { type:"mc", q:"What are derived quantities?", opts:["Basic quantities that are independent","A combination of fundamental quantities","Units without numbers","Measurements with no magnitude"], correct:1 },
+  { type:"mc", q:"Which of the following is NOT one of the seven fundamental quantities?", opts:["Mass","Length","Speed","Time"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for mass?", opts:["Gram (g)","Kilogram (kg)","Pound (lb)","Milligram (mg)"], correct:1 },
+  { type:"mc", q:"What is the SI base unit for length?", opts:["Meter (m)","Centimeter (cm)","Kilometer (km)","Foot (ft)"], correct:0 },
+  { type:"mc", q:"What is the SI base unit for time?", opts:["Minute","Hour","Second (sec)","Day"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for electric current?", opts:["Volt (V)","Ampere (A)","Ohm (Ω)","Watt (W)"], correct:1 },
+  { type:"mc", q:"What is the SI base unit for temperature?", opts:["Celsius (°C)","Fahrenheit (°F)","Kelvin (K)","Joule (J)"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for amount of substance?", opts:["Mole (mol)","Gram (g)","Liter (L)","Candela (cd)"], correct:0 },
+  { type:"mc", q:"What is the SI base unit for luminous intensity?", opts:["Lux (lx)","Candela (cd)","Watt (W)","Lumen (lm)"], correct:1 },
+  { type:"mc", q:"Which memory tip represents the seven fundamental quantities?", opts:["MLT-EATL","EATL-MLT","MTL-LEAT","MLT-ATEL"], correct:0 },
+  { type:"mc", q:"How many particles or atoms are approximately contained in one mole?", opts:["6.022 × 10²³","9.192 × 10⁹","3.00 × 10⁸","1.01 × 10⁵"], correct:0 },
+  { type:"mc", q:"What do significant figures represent?", opts:["The units used in a measurement","The number of reliably known digits in a number","Only the estimated digits","The conversion factor of a measurement"], correct:1 },
+  { type:"mc", q:"Which measurement is more precise?", opts:["2.5","2.55","Both are equally precise","Neither is measurable"], correct:1 },
+  { type:"mc", q:"In addition and subtraction, what determines the number of decimal places in the answer?", opts:["The measurement with the most decimal places","The measurement with the fewest decimal places","The largest number","The smallest number"], correct:1 },
+  { type:"mc", q:"In multiplication and division, what determines the number of significant figures in the answer?", opts:["The measurement with the most significant figures","The measurement with the fewest significant figures","The largest measurement","The number of decimal places only"], correct:1 },
+  { type:"mc", q:"What is a conversion factor used for?", opts:["Changing one set of units to another","Determining significant figures","Measuring temperature only","Finding the magnitude of a quantity"], correct:0 },
+  { type:"mc", q:"How many centimeters are equivalent to 1 meter?", opts:["10 cm","100 cm","1000 cm","0.01 cm"], correct:1 },
+  { type:"mc", q:"How many meters are equivalent to 1 kilometer?", opts:["10 m","100 m","1000 m","10,000 m"], correct:2 },
+  { type:"mc", q:"Approximately how many feet are in 1 meter according to the reviewer?", opts:["2.54 ft","3.28 ft","5.28 ft","10 ft"], correct:1 },
+  { type:"mc", q:"How many grams are equivalent to 1 kilogram?", opts:["10 g","100 g","1000 g","10,000 g"], correct:2 },
+  { type:"mc", q:"Approximately how many liters are in 1 gallon?", opts:["1.00 L","2.54 L","3.79 L","10.00 L"], correct:2 },
+  { type:"mc", q:"What is approximately equivalent to 1 cc?", opts:["1 mL","10 mL","100 mL","1 L"], correct:0 },
+  { type:"mc", q:"What is the approximate pressure equivalent of 1 atmosphere?", opts:["14.7 psi","760 psi","1.01 psi","100 psi"], correct:0 },
+  { type:"mc", q:"Which formula converts Fahrenheit to Celsius?", opts:["°C = °F + 273","°C = (°F − 32) / 1.8","°C = 1.8°F + 32","K = °F + 273"], correct:1 },
+
+  { type:"type", q:"What is the SI base unit for mass?", answers:["kilogram","kg","Kilogram","Kilogram (kg)"] },
+  { type:"type", q:"What is the SI base unit for length?", answers:["meter","m","Meter","Meter (m)"] },
+  { type:"type", q:"What is the SI base unit for electric current?", answers:["ampere","A","Ampere","Ampere (A)"] },
+  { type:"type", q:"What is the SI base unit for temperature?", answers:["kelvin","K","Kelvin","Kelvin (K)"] },
+  { type:"type", q:"What is the SI base unit for amount of substance?", answers:["mole","mol","Mole","Mole (mol)"] },
+  { type:"type", q:"What is the SI base unit for luminous intensity?", answers:["candela","cd","Candela","Candela (cd)"] },
+  { type:"type", q:"How many fundamental quantities are there in the SI system?", answers:["7","seven","Seven"] },
+  { type:"type", q:"What is the term for a value used to change one set of units to another?", answers:["conversion factor","Conversion factor"] },
+  { type:"type", q:"What is the rule for addition and subtraction involving significant figures?", answers:["limit by decimal places","decimal places","fewest decimal places"] },
+  { type:"type", q:"What is the rule for multiplication and division involving significant figures?", answers:["limit by significant figures","significant figures","fewest significant figures"] }
+];
+
+
+/*========================================================================= */
+                          /*FINITE MATHEMATICS*/
+/*========================================================================= */
+
+
+/*========================================================================= */
+                        /*EMPOWERMENT TECHNOLOGIES*/
+/*========================================================================= */
+
+
+
+/* ========================= ENGINE — no touchy please ========================= */
+
+let nav = { term:null, subject:null, lesson:null };
+let quizState = {
+  idx:0, score:0, answered:false, timer:null, timeLeft:TIME_LIMIT,
+  streak:0, bestStreak:0, partCounts:{}, questions:[]
+};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function normalize(str){ return str.trim().toLowerCase().replace(/\s+/g,' '); }
+
+function crumbHtml(){
+  const t = nav.term ? `<span class="on">${nav.term}</span>` : "Term";
+  const s = nav.subject ? `<span class="on">${nav.subject}</span>` : "Subject";
+  const l = nav.lesson ? `<span class="on">${nav.lesson}</span>` : "Lesson";
+  return `${t} &nbsp;›&nbsp; ${s} &nbsp;›&nbsp; ${l}`;
+}
+
+function renderTermMenu(){
+  nav = { term:null, subject:null, lesson:null };
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <div class="kicker label-mono">STEP 1 OF 3</div>
+      <h1>Choose a term</h1>
+      <p class="lede">Pick the term to start building your quiz.</p>
+      <div class="menu-grid">
+        ${TERMS.map(t=>`<button class="menu-btn" data-term="${t}">${t}</button>`).join('')}
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('[data-term]').forEach(btn=>{
+    btn.onclick = ()=>{ nav.term = btn.dataset.term; renderSubjectMenu(); };
+  });
+}
+
+function renderSubjectMenu(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">STEP 2 OF 3</div>
+      <h1>Choose a subject</h1>
+      <div class="crumbs">${crumbHtml()}</div>
+      <div class="menu-grid">
+        ${SUBJECTS.map(s=>`<button class="menu-btn" data-subject="${s}">${s}</button>`).join('')}
+      </div>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderTermMenu;
+  document.querySelectorAll('[data-subject]').forEach(btn=>{
+    btn.onclick = ()=>{ nav.subject = btn.dataset.subject; renderLessonMenu(); };
+  });
+}
+
+function renderLessonMenu(){
+  const app = document.getElementById('app');
+  const subjData = QUESTIONS_DB[nav.term][nav.subject];
+  const allCount = LESSON_NUMBERS.reduce((sum,n)=> sum + subjData["Lesson "+n].length, 0);
+
+  const lessonButtons = LESSON_NUMBERS.map(n=>{
+    const key = "Lesson "+n;
+    const count = subjData[key].length;
+    return `<button class="menu-btn" data-lesson="${key}">Lesson ${n}<span class="count">${count} question${count===1?'':'s'}</span></button>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">STEP 3 OF 3</div>
+      <h1>Choose a lesson</h1>
+      <div class="crumbs">${crumbHtml()}</div>
+      <div class="menu-grid cols2">${lessonButtons}</div>
+      <div class="menu-grid">
+        <button class="menu-btn all-lessons" data-lesson="__ALL__">All Lessons<span class="count">${allCount} question${allCount===1?'':'s'} combined${allCount > ALL_LESSONS_LENGTH ? ' — random '+ALL_LESSONS_LENGTH+' each play' : ''}</span></button>
+      </div>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderSubjectMenu;
+  document.querySelectorAll('[data-lesson]').forEach(btn=>{
+    btn.onclick = ()=>{
+      nav.lesson = btn.dataset.lesson;
+      startSelectedQuiz();
+    };
+  });
+}
+
+function startSelectedQuiz(){
+  const subjData = QUESTIONS_DB[nav.term][nav.subject];
+  let pool = [];
+  let label = "";
+
+  if(nav.lesson === "__ALL__"){
+    LESSON_NUMBERS.forEach(n=>{ pool = pool.concat(subjData["Lesson "+n]); });
+    label = "All Lessons";
+  } else {
+    pool = subjData[nav.lesson].slice();
+    label = nav.lesson;
+  }
+
+  const shuffled = shuffle(pool);
+  const cap = nav.lesson === "__ALL__" ? ALL_LESSONS_LENGTH : QUIZ_LENGTH;
+  const selected = shuffled.length > cap ? shuffled.slice(0, cap) : shuffled;
+
+  quizState = {
+    idx:0, score:0, answered:false, timer:null, timeLeft:TIME_LIMIT,
+    streak:0, bestStreak:0, partCounts:{}, questions: selected
+  };
+
+  if(pool.length === 0){
+    renderEmptyState(label);
+    return;
+  }
+  renderQuestion();
+}
+
+function renderEmptyState(label){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">${nav.term} · ${nav.subject}</div>
+      <h1>${label}</h1>
+      <div class="empty-note">No questions have been added for this selection yet — check back once they're filled in.</div>
+      <button class="btn-primary" id="menuBtn">Return to menu</button>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderLessonMenu;
+  document.getElementById('menuBtn').onclick = renderTermMenu;
+}
+
+function currentTimeLimit(q){ return (typeof q.time === "number") ? q.time : TIME_LIMIT; }
+
+function renderQuestion(){
+  clearInterval(quizState.timer);
+  const total = quizState.questions.length;
+  const q = quizState.questions[quizState.idx];
+  quizState.answered = false;
+  const limit = currentTimeLimit(q);
+  quizState.timeLeft = limit;
+
+  const app = document.getElementById('app');
+  const pct = (quizState.idx/total)*100;
+  const tag = nav.lesson === "__ALL__" ? "All Lessons" : nav.lesson;
+
+  let bodyHtml = "";
+  if(q.type === "mc"){
+    const optOrder = shuffle(q.opts.map((_,i)=>i));
+    q._order = optOrder;
+    bodyHtml = `
+      <div class="options" id="options">
+        ${optOrder.map((oi,pos)=>`
+          <button class="opt" data-oi="${oi}">
+            <span class="tag">${LETTERS[pos]}</span><span>${q.opts[oi]}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div class="type-wrap">
+        <input type="text" class="type-input" id="typeInput" placeholder="Type your answer..." autocomplete="off">
+        <button class="btn-primary" id="submitBtn">Submit</button>
+        <div class="type-feedback" id="typeFeedback"></div>
+      </div>
+    `;
+  }
+
+  app.innerHTML = `
+    <div class="quiz-card">
+      <div class="top-row">
+        <span class="section-tag label-mono">${nav.subject.toUpperCase()} · ${tag.toUpperCase()}</span>
+        <span class="label-mono">Q${quizState.idx+1} / ${total} &nbsp;·&nbsp; SCORE ${quizState.score}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="timer-wrap">
+        <div class="timer-track"><div class="timer-fill" id="timerFill"></div></div>
+        <div class="timer-num label-mono" id="timerNum">${limit}</div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      ${bodyHtml}
+      <div class="streak-note" id="streakNote">${quizState.streak>=2 ? quizState.streak+"-question streak" : ""}</div>
+    </div>
+  `;
+
+  if(q.type === "mc"){
+    document.querySelectorAll('.opt').forEach(btn=>{
+      btn.addEventListener('click', ()=> selectMCAnswer(parseInt(btn.dataset.oi)));
+    });
+  } else {
+    const input = document.getElementById('typeInput');
+    const submit = document.getElementById('submitBtn');
+    submit.addEventListener('click', ()=> selectTypeAnswer(input.value));
+    input.addEventListener('keydown', (e)=>{ if(e.key === "Enter") selectTypeAnswer(input.value); });
+    input.focus();
+  }
+
+  startTimer(limit, q.type);
+}
+
+function startTimer(limit, type){
+  const fill = document.getElementById('timerFill');
+  const num = document.getElementById('timerNum');
+  quizState.timer = setInterval(()=>{
+    quizState.timeLeft -= 1;
+    if(num) num.textContent = Math.max(quizState.timeLeft,0);
+    if(fill){
+      const pct = Math.max(quizState.timeLeft,0)/limit*100;
+      fill.style.width = pct+"%";
+      fill.style.background = quizState.timeLeft<=5 ? "var(--wrong)" : "var(--amber)";
+    }
+    if(quizState.timeLeft<=0){
+      clearInterval(quizState.timer);
+      if(!quizState.answered){
+        if(type === "mc") selectMCAnswer(null);
+        else selectTypeAnswer(document.getElementById('typeInput') ? document.getElementById('typeInput').value : "");
+      }
+    }
+  },1000);
+}
+
+function tallyResult(isCorrect){
+  const q = quizState.questions[quizState.idx];
+  const part = nav.lesson === "__ALL__" ? "All Lessons" : nav.lesson;
+  if(!quizState.partCounts[part]) quizState.partCounts[part] = {correct:0,total:0};
+  quizState.partCounts[part].total += 1;
+  if(isCorrect){
+    quizState.score += 1;
+    quizState.streak += 1;
+    quizState.bestStreak = Math.max(quizState.bestStreak, quizState.streak);
+    quizState.partCounts[part].correct += 1;
+  } else {
+    quizState.streak = 0;
+  }
+}
+
+function selectMCAnswer(chosenIdx){
+  if(quizState.answered) return;
+  quizState.answered = true;
+  clearInterval(quizState.timer);
+  const q = quizState.questions[quizState.idx];
+  const isCorrect = chosenIdx === q.correct;
+  tallyResult(isCorrect);
+
+  document.querySelectorAll('.opt').forEach(btn=>{
+    const oi = parseInt(btn.dataset.oi);
+    btn.disabled = true;
+    if(oi === q.correct) btn.classList.add('correct');
+    else if(oi === chosenIdx) btn.classList.add('wrong');
+    else btn.classList.add('dim');
+  });
+
+  showNote(isCorrect, chosenIdx===null);
+  advanceSoon();
+}
+
+function selectTypeAnswer(rawValue){
+  if(quizState.answered) return;
+  quizState.answered = true;
+  clearInterval(quizState.timer);
+  const q = quizState.questions[quizState.idx];
+  const given = normalize(rawValue || "");
+  const isCorrect = q.answers.some(a => normalize(a) === given);
+  tallyResult(isCorrect);
+
+  const input = document.getElementById('typeInput');
+  const feedback = document.getElementById('typeFeedback');
+  const submit = document.getElementById('submitBtn');
+  if(input) input.disabled = true;
+  if(submit) submit.disabled = true;
+  if(input) input.classList.add(isCorrect ? 'correct' : 'wrong');
+  if(feedback){
+    feedback.classList.add(isCorrect ? 'correct' : 'wrong');
+    feedback.textContent = isCorrect ? "Correct" : `Correct answer: ${q.answers[0]}`;
+  }
+
+  showNote(isCorrect, given === "");
+  advanceSoon();
+}
+
+function showNote(isCorrect, timedOut){
+  const note = document.getElementById('streakNote');
+  if(!note) return;
+  note.textContent = isCorrect
+    ? (quizState.streak>=2 ? quizState.streak+"-question streak" : "Correct")
+    : (timedOut ? "Time's up" : "Not quite");
+  note.style.color = isCorrect ? "var(--cyan)" : "var(--wrong)";
+}
+
+function advanceSoon(){
+  setTimeout(()=>{
+    if(quizState.idx < quizState.questions.length-1){
+      quizState.idx += 1;
+      renderQuestion();
+    } else {
+      renderEnd();
+    }
+  }, 1400);
+}
+
+function renderEnd(){
+  clearInterval(quizState.timer);
+  const total = quizState.questions.length;
+  const pct = Math.round((quizState.score/total)*100);
+  const app = document.getElementById('app');
+
+  const rows = Object.keys(quizState.partCounts).map(part=>{
+    const c = quizState.partCounts[part];
+    return `<div class="row"><span>${part}</span><span>${c.correct} / ${c.total}</span></div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="end-card">
+      <div class="kicker label-mono">RESULTS · ${nav.term} · ${nav.subject}</div>
+      <div class="score-big">${quizState.score}/${total}</div>
+      <div class="score-sub">${pct}% correct &nbsp;·&nbsp; best streak ${quizState.bestStreak}</div>
+      <div class="breakdown">${rows}</div>
+      <button class="btn-primary" id="retryBtn">Retry this quiz</button>
+      <button class="btn-secondary" id="menuBtn">Back to menu</button>
+    </div>
+  `;
+  document.getElementById('retryBtn').onclick = startSelectedQuiz;
+  document.getElementById('menuBtn').onclick = renderTermMenu;
+}
+
+renderTermMenu();
+</script>
+</body>
+</html>
