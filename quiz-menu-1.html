@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Menu</title>
+<style>
+  :root{
+    --bg:#0E1420;
+    --panel:#161F2E;
+    --panel-edge:#243247;
+    --text:#E8EDF4;
+    --sub:#8CA0B8;
+    --cyan:#4FD8C8;
+    --amber:#F0A83A;
+    --wrong:#E15B5B;
+    --right:#4FD8C8;
+    --trace:#1C2A3D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(circle at 15% 10%, #172236 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #172a2a 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .label-mono{ font-family: 'Consolas', 'SF Mono', monospace; letter-spacing:0.02em; }
+  #app{ width:100%; max-width:560px; }
+
+  .trace-row{ display:flex; align-items:center; gap:6px; margin-bottom:18px; opacity:0.7; }
+  .trace-row .node{ width:6px; height:6px; border-radius:50%; background:var(--cyan); flex-shrink:0; }
+  .trace-row .line{ height:1px; flex:1; background:var(--trace); }
+
+  .panel-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:36px 32px; position:relative; }
+  .panel-card::before{ content:""; position:absolute; top:0; left:0; width:34px; height:34px; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .panel-card::after{ content:""; position:absolute; bottom:0; right:0; width:34px; height:34px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+
+  .kicker{ font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--cyan); letter-spacing:0.08em; margin-bottom:10px; }
+  h1{ font-size:27px; font-weight:600; line-height:1.3; margin-bottom:8px; }
+  .lede{ color:var(--sub); font-size:14.5px; line-height:1.6; margin-bottom:26px; }
+
+  .crumbs{ font-family:'Consolas','SF Mono',monospace; font-size:12px; color:var(--sub); margin-bottom:20px; }
+  .crumbs span.on{ color:var(--cyan); }
+
+  .menu-grid{ display:flex; flex-direction:column; gap:10px; margin-bottom:22px; }
+  .menu-grid.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  button{ font-family:inherit; cursor:pointer; border:none; }
+  .menu-btn{
+    background:var(--trace); border:1px solid var(--panel-edge); color:var(--text);
+    padding:15px 16px; border-radius:3px; text-align:left; font-size:14.5px;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .menu-btn:hover{ border-color:var(--cyan); background:#20304a; }
+  .menu-btn.all-lessons{ border-color:var(--amber); color:var(--amber); font-weight:600; }
+  .menu-btn.all-lessons:hover{ background:rgba(240,168,58,0.12); }
+  .menu-btn .count{ display:block; font-family:'Consolas','SF Mono',monospace; font-size:11.5px; color:var(--sub); margin-top:3px; }
+
+  .back-link{
+    background:transparent; color:var(--sub); font-size:13px; font-family:'Consolas','SF Mono',monospace;
+    padding:6px 0; margin-bottom:18px; display:inline-flex; align-items:center; gap:6px;
+  }
+  .back-link:hover{ color:var(--cyan); }
+
+  .btn-primary{ background:var(--cyan); color:#0B1119; font-weight:700; font-size:15.5px; padding:14px 22px; border-radius:3px; width:100%; transition:transform 0.12s ease, background 0.12s ease; }
+  .btn-primary:hover{ background:#69E4D6; }
+  .btn-primary:active{ transform:scale(0.98); }
+  .btn-primary:disabled{ opacity:0.4; cursor:default; }
+
+  .empty-note{
+    font-family:'Consolas','SF Mono',monospace; font-size:13px; color:var(--wrong);
+    background:rgba(225,91,91,0.1); border:1px solid rgba(225,91,91,0.3);
+    padding:12px 14px; border-radius:3px; margin-bottom:20px;
+  }
+
+  /* ---------- Quiz screen (same engine as before) ---------- */
+  .quiz-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:26px 26px 30px; }
+  .top-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--sub); }
+  .section-tag{ color:var(--amber); }
+  .progress-track{ height:4px; background:var(--trace); border-radius:2px; margin-bottom:22px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--cyan); border-radius:2px; transition:width 0.3s ease; }
+  .timer-wrap{ display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .timer-track{ flex:1; height:6px; background:var(--trace); border-radius:3px; overflow:hidden; }
+  .timer-fill{ height:100%; background:var(--amber); width:100%; transition:width 1s linear, background 0.3s ease; }
+  .timer-num{ font-family:'Consolas','SF Mono',monospace; font-size:13px; color:var(--sub); width:24px; text-align:right; }
+  .q-text{ font-size:19px; line-height:1.45; font-weight:600; margin-bottom:22px; min-height:52px; }
+
+  .options{ display:flex; flex-direction:column; gap:10px; }
+  .opt{ display:flex; align-items:center; gap:12px; background:var(--trace); border:1px solid transparent; border-radius:3px; padding:14px 16px; text-align:left; font-size:14.5px; color:var(--text); transition:border-color 0.15s ease, background 0.15s ease; }
+  .opt:hover:not(:disabled){ border-color:var(--panel-edge); background:#20304a; }
+  .opt .tag{ font-family:'Consolas','SF Mono',monospace; font-size:12px; color:var(--sub); width:16px; flex-shrink:0; }
+  .opt.correct{ background:rgba(79,216,200,0.15); border-color:var(--right); }
+  .opt.wrong{ background:rgba(225,91,91,0.15); border-color:var(--wrong); }
+  .opt:disabled{ cursor:default; }
+  .opt.dim{ opacity:0.45; }
+
+  .type-wrap{ display:flex; flex-direction:column; gap:12px; }
+  .type-input{ background:var(--trace); border:1px solid var(--panel-edge); border-radius:3px; padding:14px 16px; font-size:15px; color:var(--text); font-family:inherit; }
+  .type-input:focus{ outline:none; border-color:var(--cyan); }
+  .type-input.correct{ border-color:var(--right); background:rgba(79,216,200,0.12); }
+  .type-input.wrong{ border-color:var(--wrong); background:rgba(225,91,91,0.12); }
+  .type-feedback{ font-family:'Consolas','SF Mono',monospace; font-size:13px; min-height:16px; }
+  .type-feedback.correct{ color:var(--right); }
+  .type-feedback.wrong{ color:var(--wrong); }
+
+  .streak-note{ margin-top:16px; font-family:'Consolas','SF Mono',monospace; font-size:12.5px; color:var(--cyan); min-height:16px; }
+
+  .end-card{ background:var(--panel); border:1px solid var(--panel-edge); border-radius:4px; padding:38px 34px; text-align:center; }
+  .score-big{ font-size:56px; font-weight:700; color:var(--cyan); line-height:1; margin:6px 0 4px; }
+  .score-sub{ color:var(--sub); font-size:14px; margin-bottom:26px; }
+  .breakdown{ display:flex; flex-direction:column; gap:8px; margin-bottom:28px; text-align:left; }
+  .breakdown .row{ display:flex; justify-content:space-between; padding:10px 14px; background:var(--trace); border-radius:3px; font-size:13.5px; }
+  .breakdown .row span:last-child{ font-family:'Consolas','SF Mono',monospace; color:var(--sub); }
+  .btn-secondary{ background:transparent; border:1px solid var(--panel-edge); color:var(--text); padding:13px 20px; border-radius:3px; width:100%; font-size:14.5px; margin-top:10px; }
+  .btn-secondary:hover{ border-color:var(--cyan); }
+
+  @media (max-width:480px){
+    .panel-card, .quiz-card, .end-card{ padding:26px 20px; }
+    h1{ font-size:22px; }
+    .q-text{ font-size:17px; }
+    .score-big{ font-size:46px; }
+    .menu-grid.cols2{ grid-template-columns:1fr; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+const TERMS = ["Term 1","Term 2","Term 3"];
+const SUBJECTS = ["General Math","General Science","Physics","Finite Mathematics","Empowerment Technologies"];
+const LESSON_NUMBERS = Array.from({length:8}, (_,i)=>i+1); // Lesson 1 .. Lesson 12
+
+const TIME_LIMIT = 20; // default seconds per question (override per-question with "time: N")
+const QUIZ_LENGTH = 20; // max questions for a single lesson quiz — random subset if the lesson has more
+const ALL_LESSONS_LENGTH = 50; // max questions when "All Lessons" is picked — random subset if combined pool has more
+const LETTERS = ["A","B","C","D","E","F"];
+
+// Build the empty skeleton — Term -> Subject -> "Lesson N" -> []
+const QUESTIONS_DB = {};
+TERMS.forEach(term=>{
+  QUESTIONS_DB[term] = {};
+  SUBJECTS.forEach(subject=>{
+    QUESTIONS_DB[term][subject] = {};
+    LESSON_NUMBERS.forEach(n=>{
+      QUESTIONS_DB[term][subject]["Lesson "+n] = [];
+    });
+  });
+});
+
+/*========================================================================= */
+                       /*GENERAL MATHEMATICS*/
+/*========================================================================= */
+
+/*========================================================================= */
+                         /*GENERAL SCIENCE*/
+/*========================================================================= */
+
+QUESTIONS_DB["Term 1"]["General Science"]["Lesson 1"] = [
+  { type:"type", q:"Type the term for any physical movement or change in position relative to a reference point.", answers:["motion"] },
+  { type:"mc", q:"Motion is the change of position of an object with respect to what?", opts:["Time","Mass","Color","Temperature"], correct:0 },
+  { type:"mc", q:"Which of these is a scalar quantity?", opts:["Speed","Velocity","Displacement","Acceleration"], correct:0 },
+  { type:"mc", q:"Which of these is a vector quantity?", opts:["Force","Mass","Time","Speed"], correct:0 },
+  { type:"mc", q:"A quantity with magnitude only, no direction, is called a:", opts:["Scalar","Vector","Reference point","Displacement"], correct:0 },
+  { type:"mc", q:"A quantity with both magnitude and direction is called a:", opts:["Vector","Scalar","Distance","Speed"], correct:0 },
+  { type:"type", q:"Type one example of a scalar quantity (e.g. pressure, length, mass, time, speed, work, energy, or temperature).", answers:["pressure","length","mass","time","speed","work","energy","temperature"] },
+  { type:"type", q:"Type one example of a vector quantity (e.g. acceleration, force, displacement, velocity, weight, or momentum).", answers:["acceleration","force","displacement","velocity","weight","momentum"] },
+  { type:"mc", q:"The length of the path travelled by a body while moving from an initial to a final position is called:", opts:["Distance","Displacement","Velocity","Acceleration"], correct:0 },
+  { type:"mc", q:"The shortest distance between the initial and final position of a body is called:", opts:["Displacement","Distance","Speed","Acceleration"], correct:0 },
+  { type:"mc", q:"Which of the two — distance or displacement — is always measured as positive?", opts:["Distance","Displacement","Both","Neither"], correct:0 },
+  { type:"mc", q:"Which of the two — distance or displacement — can be positive or negative depending on the reference point?", opts:["Displacement","Distance","Both","Neither"], correct:0 },
+  { type:"mc", q:"Displacement will be zero when:", opts:["The body returns to its initial position","The body moves in a straight line","The body accelerates","The body speeds up"], correct:0 },
+  { type:"type", q:"Type the SI unit of both distance and displacement.", answers:["metre","meter","m"] },
+  { type:"mc", q:"The rate of change of distance with time is called:", opts:["Speed","Velocity","Acceleration","Displacement"], correct:0 },
+  { type:"mc", q:"The distance travelled per second by a body in a specific direction is called:", opts:["Velocity","Speed","Distance","Displacement"], correct:0 },
+  { type:"mc", q:"Which is a scalar quantity: speed or velocity?", opts:["Speed","Velocity","Both","Neither"], correct:0 },
+  { type:"mc", q:"Which is a vector quantity: speed or velocity?", opts:["Velocity","Speed","Both","Neither"], correct:0 },
+  { type:"type", q:"Type the formula for speed (use a slash for division, e.g. A/B).", answers:["distance/time"] },
+  { type:"type", q:"Type the formula for velocity (use a slash for division, e.g. A/B).", answers:["displacement/time"] },
+  { type:"type", q:"Type the SI unit of both speed and velocity.", answers:["m/s"] },
+  { type:"mc", q:"The rate of change of velocity with time is called:", opts:["Acceleration","Speed","Displacement","Distance"], correct:0 },
+  { type:"type", q:"Type the formula for acceleration (use a slash for division, e.g. A/B).", answers:["velocity/time"] },
+  { type:"mc", q:"Which type of motion occurs when an object moves along a path in a straight line from one point to another?", opts:["Translational motion","Rotational motion","Angular motion","Circular motion"], correct:0 },
+  { type:"mc", q:"In translational motion, how do all parts of the object move?", opts:["The same distance, direction, and time","Different distances and directions","Only in a circular path","At different speeds"], correct:0 },
+  { type:"mc", q:"Which of these is an example of translational motion?", opts:["A car moving along a road","A spinning top","A Ferris wheel turning","An ice skater spinning"], correct:0 },
+  { type:"mc", q:"Which of these is an example of translational motion?", opts:["An airplane flying in a straight path","A soccer ball spinning in place","A ceiling fan rotating","A record spinning on a turntable"], correct:0 },
+  { type:"mc", q:"Linear quantities are used to describe which type of motion?", opts:["Translational motion","Rotational motion","Angular motion","Circular motion only"], correct:0 },
+  { type:"mc", q:"The change in position of an object, with magnitude and direction, measured in meters, is called:", opts:["Linear displacement","Linear velocity","Linear acceleration","Angular displacement"], correct:0 },
+  { type:"mc", q:"The rate of change of displacement, including speed and direction, measured in m/s, is called:", opts:["Linear velocity","Linear displacement","Linear acceleration","Angular velocity"], correct:0 },
+  { type:"mc", q:"The rate of change of velocity, involving a change in speed and/or direction, measured in m/s², is called:", opts:["Linear acceleration","Linear velocity","Linear displacement","Angular acceleration"], correct:0 },
+  { type:"mc", q:"Which type of motion is the circular movement of an object around a central line (axis of rotation)?", opts:["Rotational motion","Translational motion","Linear motion","Straight-line motion"], correct:0 },
+  { type:"mc", q:"In rotational motion, every point on the object moves in what kind of path?", opts:["A circular path around the axis","A straight line","A random path","No path at all"], correct:0 },
+  { type:"mc", q:"Which of these is an example of rotational motion?", opts:["A Ferris wheel turning","A car driving down a road","A person walking forward","An airplane flying straight"], correct:0 },
+  { type:"mc", q:"Which of these is an example of rotational motion?", opts:["An ice skater spinning","A train moving on tracks","A ball being thrown forward","A person running"], correct:0 },
+  { type:"mc", q:"Angular quantities are used to describe which type of motion?", opts:["Rotational motion","Translational motion","Linear motion only","Straight-line motion"], correct:0 },
+  { type:"mc", q:"The angle through which an object rotates, measured in degrees or radians, is called:", opts:["Angular displacement","Angular velocity","Angular acceleration","Linear displacement"], correct:0 },
+  { type:"mc", q:"Which property does angular displacement have, in addition to a value?", opts:["Direction (clockwise/counterclockwise)","Mass","Temperature","Color"], correct:0 },
+  { type:"mc", q:"The rate of change of angular displacement — how fast an object rotates — is called:", opts:["Angular velocity","Angular displacement","Angular acceleration","Linear velocity"], correct:0 },
+  { type:"type", q:"Type the SI unit of angular velocity.", answers:["rad/s"] },
+  { type:"mc", q:"The rate of change of angular velocity is called:", opts:["Angular acceleration","Angular velocity","Angular displacement","Linear acceleration"], correct:0 },
+  { type:"type", q:"Type the SI unit of angular acceleration.", answers:["rad/s^2","rad/s2","rad/s²"] },
+  { type:"mc", q:"In the formula ω = v / r, what does ω represent?", opts:["Angular velocity","Linear velocity","Radius","Angular acceleration"], correct:0 },
+  { type:"mc", q:"In translational motion, how does displacement compare across all parts of the object?", opts:["It is the same for all parts","It varies for each part","It is always zero","It cannot be measured"], correct:0 },
+  { type:"mc", q:"In rotational motion, how does displacement compare across different parts of the object?", opts:["It varies across different parts","It is the same for all parts","It is always zero","It cannot be measured"], correct:0 },
+  { type:"mc", q:"In translational motion, how do the direction and velocity of all parts of the object compare?", opts:["Same direction and same velocity","Different directions and different velocities","No direction and no velocity","Only direction is the same, velocity varies"], correct:0 }
+];
+QUESTIONS_DB["Term 1"]["General Science"]["Lesson 2"] = [
+  { type:"type", q:"Type the term for movement in a straight line from one place to another.", answers:["linear motion"] },
+  { type:"type", q:"Type the term for movement by turning or spinning around a fixed point or axis.", answers:["angular motion"] },
+  { type:"mc", q:"Which linear quantity describes how far you move straight ahead?", opts:["Displacement","Velocity","Acceleration","Angular displacement"], correct:0 },
+  { type:"mc", q:"Which linear quantity describes how fast and in which direction you move?", opts:["Velocity","Displacement","Acceleration","Angular velocity"], correct:0 },
+  { type:"mc", q:"Which linear quantity describes how your speed changes while moving?", opts:["Acceleration","Displacement","Velocity","Angular acceleration"], correct:0 },
+  { type:"mc", q:"Which angular quantity describes how much you rotate or turn?", opts:["Angular displacement","Angular velocity","Angular acceleration","Linear displacement"], correct:0 },
+  { type:"mc", q:"Which angular quantity describes how fast you are spinning?", opts:["Angular velocity","Angular displacement","Angular acceleration","Linear velocity"], correct:0 },
+  { type:"mc", q:"Which angular quantity describes how your spinning speed changes?", opts:["Angular acceleration","Angular displacement","Angular velocity","Linear acceleration"], correct:0 },
+  { type:"mc", q:"A figure skater spinning faster while pulling their arms in is an example of which quantity?", opts:["Angular velocity","Linear velocity","Displacement","Linear acceleration"], correct:0 },
+  { type:"mc", q:"A merry-go-round speeding up after being pushed off is an example of which quantity?", opts:["Angular acceleration","Angular displacement","Linear acceleration","Displacement"], correct:0 },
+  { type:"mc", q:"In dance, spinning is an example of which type of motion, while moving across the stage is an example of which other type?", opts:["Angular motion; linear motion","Linear motion; angular motion","Angular motion; angular motion","Linear motion; linear motion"], correct:0 },
+  { type:"mc", q:"In gymnastics, flipping forward is which type of motion, while twisting the body in the air is which other type?", opts:["Linear motion; angular motion","Angular motion; linear motion","Linear motion; linear motion","Angular motion; angular motion"], correct:0 },
+  { type:"mc", q:"Walking is an example of linear motion, while turning your head is an example of:", opts:["Angular motion","Linear motion","Displacement only","Velocity only"], correct:0 },
+  { type:"mc", q:"In vehicles, moving smoothly forward is linear motion, while turning at corners uses angular motion of the:", opts:["Steering","Seatbelt","Windshield","Fuel tank"], correct:0 },
+  { type:"mc", q:"In buildings, doors swinging open are an example of angular motion, while elevators moving up and down are an example of:", opts:["Linear motion","Angular motion","Angular displacement only","Angular velocity only"], correct:0 },
+  { type:"mc", q:"A runner covers 100 meters in a straight line in 20 seconds. What is the runner's velocity?", opts:["5 m/s","20 m/s","2000 m/s","0.2 m/s"], correct:0, time:60 },
+  { type:"mc", q:"A cyclist speeds up from 5 m/s to 15 m/s over 4 seconds. What is the cyclist's acceleration?", opts:["2.5 m/s²","10 m/s²","40 m/s²","0.4 m/s²"], correct:0, time:60 },
+  { type:"mc", q:"A person spins and turns 180 degrees in 3 seconds. What is their angular velocity?", opts:["60 degrees/s","3 degrees/s","180 degrees/s","540 degrees/s"], correct:0, time:60 },
+  { type:"mc", q:"A figure skater's spin speeds up from 2 rad/s to 8 rad/s over 3 seconds. What is the skater's angular acceleration?", opts:["2 rad/s²","6 rad/s²","24 rad/s²","0.5 rad/s²"], correct:0, time:60 },
+  { type:"mc", q:"A door swings open 90 degrees in 2 seconds. What is its angular velocity?", opts:["45 degrees/s","2 degrees/s","90 degrees/s","180 degrees/s"], correct:0, time:60 }
+];                                                                                    
+QUESTIONS_DB["Term 1"]["General Science"]["Lesson 3"] = [
+  { type:"mc", q:"Which type of machine mostly consists of one or two parts and uses human mechanical effort?", opts:["Simple machine","Complex machine","Hydraulic machine","Compound engine"], correct:0 },
+  { type:"mc", q:"Which type of machine mostly requires external power in the form of heat or electricity?", opts:["Complex machine","Simple machine","Lever","Wedge"], correct:0 },
+  { type:"mc", q:"Complex machines are mostly comprised of many of which type of machine?", opts:["Simple machines","Hydraulic systems only","Pulleys only","Screws only"], correct:0 },
+  { type:"mc", q:"Which simple machine offers a balance between effort and load through pivot points?", opts:["Lever","Pulley","Screw","Wedge"], correct:0 },
+  { type:"type", q:"Type the term for the fixed point on a lever, which is the axis of rotation.", answers:["fulcrum"] },
+  { type:"type", q:"Type the formula relating effort, effort arm, load, and load arm on a lever (use × for multiplication and = for equals).", answers:["effort x effort arm = load x load arm","effort × effort arm = load × load arm"] },
+  { type:"mc", q:"Which simple machine reduces rolling resistance by converting rotational motion into translational motion?", opts:["Wheel and axle","Lever","Screw","Wedge"], correct:0 },
+  { type:"mc", q:"A wheel and axle is composed of a circular disk (wheel) rotating within what?", opts:["A cylindrical rigid bar (axle)","A rope and pulley","A sloped surface","A pointed blade"], correct:0 },
+  { type:"mc", q:"A lever has an effort of 20 N applied at an effort arm of 4 m, and a load arm of 2 m. Using Effort × Effort Arm = Load × Load Arm, what is the load force?", opts:["40 N","20 N","80 N","10 N"], correct:0, time:60 },
+  { type:"mc", q:"Which simple machine uses wheels and ropes to change the direction of force?", opts:["Pulley","Screw","Wedge","Inclined plane"], correct:0 },
+  { type:"mc", q:"A pulley combines the principles of which two simple machines?", opts:["Lever and wheel and axle","Wedge and screw","Inclined plane and lever","Screw and pulley"], correct:0 },
+  { type:"mc", q:"A lever has an effort arm of 6 m and a load arm of 2 m. What is its Ideal Mechanical Advantage (IMA)?", opts:["3","2","6","0.33"], correct:0, time:60 },
+  { type:"mc", q:"Which simple machine makes it easier to raise objects vertically by spreading effort over a longer, sloping distance?", opts:["Inclined plane","Lever","Pulley","Wedge"], correct:0 },
+  { type:"mc", q:"A machine produces a load force of 150 N when 50 N of effort force is applied. What is its Actual Mechanical Advantage (AMA)?", opts:["3","50","150","0.33"], correct:0, time:60 },
+  { type:"mc", q:"Which simple machine focuses force onto a small area to make cutting or splitting easier?", opts:["Wedge","Screw","Wheel and axle","Pulley"], correct:0 },
+  { type:"mc", q:"A machine has an AMA of 3 and an IMA of 4. What is its percent efficiency?", opts:["75%","133%","25%","7.5%"], correct:0, time:60 },
+  { type:"mc", q:"Which simple machine converts rotational force into linear force?", opts:["Screw","Lever","Wedge","Pulley"], correct:0 },
+  { type:"mc", q:"A first-class lever has an effort arm of 5 m and a load arm of 1 m. What is its IMA?", opts:["5","0.2","1","6"], correct:0, time:60 },
+  { type:"type", q:"Type the term for how much a simple machine multiplies your effort force.", answers:["mechanical advantage"] },
+  { type:"mc", q:"A second-class lever (like a wheelbarrow) has a load arm of 0.5 m and an effort arm of 1.5 m, lifting a 300 N load. Using Effort × Effort Arm = Load × Load Arm, what effort force is needed?", opts:["100 N","300 N","150 N","50 N"], correct:0, time:60 },
+  { type:"mc", q:"Which type of mechanical advantage is measured when the simple machine is not yet used?", opts:["Ideal Mechanical Advantage (IMA)","Actual Mechanical Advantage (AMA)","Efficiency","Output force"], correct:0 },
+  { type:"type", q:"Type the formula for IMA using effort arm and load arm (use a slash for division).", answers:["effort arm/load arm"] },
+  { type:"mc", q:"Which type of mechanical advantage is measured once a machine has already performed work?", opts:["Actual Mechanical Advantage (AMA)","Ideal Mechanical Advantage (IMA)","Efficiency","Input force"], correct:0 },
+  { type:"type", q:"Type the formula for AMA using load force and effort force (use a slash for division).", answers:["load force/effort force","r/e"] },
+  { type:"type", q:"Type the formula for percent efficiency of a machine (use AMA, IMA, a slash, and x100).", answers:["ama/ima x100","(ama/ima) x 100","ama/ima*100"] },
+  { type:"mc", q:"Efficiency tells us how well a machine converts what into useful output work?", opts:["Input work","Load arm","Fulcrum position","Angular velocity"], correct:0 },
+  { type:"mc", q:"Which of these is NOT listed as a way to improve a machine's efficiency?", opts:["Increasing the load weight","Reducing energy loss","Using better materials","Designing parts to move smoothly"], correct:0 },
+  { type:"mc", q:"In a first-class lever, where is the fulcrum located?", opts:["Between the effort and the load","Between the load and the fulcrum","Between the effort and itself","At the very end of the lever only"], correct:0 },
+  { type:"mc", q:"What can the IMA value of a first-class lever be?", opts:["Less than, equal to, or greater than 1","Always exactly 1","Always greater than 1","Always less than 1"], correct:0 },
+  { type:"mc", q:"In a second-class lever, where is the load located?", opts:["Between the fulcrum and the effort force","Between the effort and itself","At the very end only","Outside the lever system"], correct:0 },
+  { type:"mc", q:"What is always true about the IMA value of a second-class lever?", opts:["It is always greater than 1","It is always less than 1","It is always equal to 1","It cannot be calculated"], correct:0 },
+  { type:"mc", q:"In a third-class lever, where is the effort force located?", opts:["Between the fulcrum and the load force","Between the load and itself","At the very end only","Outside the lever system"], correct:0 },
+  { type:"mc", q:"What is always true about the IMA value of a third-class lever?", opts:["It is always less than 1","It is always greater than 1","It is always equal to 1","It cannot be calculated"], correct:0 },
+  { type:"type", q:"Type the term for a push or pull that causes movement.", answers:["force"] },
+  { type:"mc", q:"A machine puts in 500 J of input work and produces 400 J of useful output work. What is its efficiency?", opts:["80%","125%","20%","500%"], correct:0, time:60 },
+  { type:"type", q:"Type the name of the principle stating that pressure applied to an enclosed fluid is transmitted equally in all directions.", answers:["pascal's principle","pascals principle"] },
+  { type:"mc", q:"In hydraulics, Pascal's Principle allows a small input force over a small area to be multiplied into what?", opts:["A massive output force over a larger area","A smaller output force over a smaller area","An equal force over an equal area","No force at all"], correct:0 },
+  { type:"mc", q:"Which of these systems is based on Pascal's Principle?", opts:["Hydraulic systems","Pulley systems","Lever systems","Wedge systems"], correct:0 },
+  { type:"mc", q:"A lever has an effort force of 25 N at an effort arm of 10 m, and a load arm of 2 m. What is the load force?", opts:["125 N","250 N","25 N","50 N"], correct:0, time:60 },
+  { type:"mc", q:"Which of these is NOT listed as a typical component of a hydraulic system?", opts:["Fulcrum","Reservoir","Pump","Hydraulic cylinder"], correct:0 }
+];
+
+/*========================================================================= */
+                            /*PHYSICS*/
+/*========================================================================= */
+
+QUESTIONS_DB["Term 1"]["Physics"]["Lesson 1"] = [
+  { type:"mc", q:"Who discovered the lever principle and buoyancy?", opts:["Galileo Galilei","Archimedes","Albert Einstein","Henri Becquerel"], correct:1 },
+  { type:"mc", q:"Which principle explains how objects experience an upward force when immersed in a fluid?", opts:["Photoelectric Effect","Lever Principle","Archimedes' Principle","Relativity"], correct:2 },
+  { type:"mc", q:"What did Galileo Galilei discover about falling bodies?", opts:["Heavier objects fall faster","Bodies fall at the same rate regardless of mass","Objects do not fall without air resistance","Light falls at the speed of sound"], correct:1 },
+  { type:"mc", q:"Who accidentally discovered radioactivity from uranium?", opts:["Henri Becquerel","Archimedes","Gregorio Zara","Albert Einstein"], correct:0 },
+  { type:"mc", q:"What equation represents the energy of a photon?", opts:["E = mc²","E = hf","F = ma","P = mv"], correct:1 },
+  { type:"mc", q:"Who explained the photoelectric effect using the idea of photons?", opts:["Galileo Galilei","Henri Becquerel","Albert Einstein","Archimedes"], correct:2 },
+  { type:"mc", q:"Which sequence best describes how scientific discoveries contribute to career demand?", opts:["Career Demand → Discovery → Technology","Technology → Career Demand → Discovery","Scientific Discovery → Technological Application → Career Demand","Technology → Discovery → Career Demand"], correct:2 },
+  { type:"mc", q:"Which technology relies on light amplification?", opts:["Computers","Lasers","Microwaves","Incubators"], correct:1 },
+  { type:"mc", q:"Which of the following is an application of lasers?", opts:["Mapping rock layers","Cutting steel","Studying quarks","Regulating newborn temperature"], correct:1 },
+  { type:"mc", q:"Computers were built partly on advancements in which materials and technologies?", opts:["Thin films, magnetic materials, and semiconductors","Bamboo, wood, and glass","Levers and pulleys","Radioactive uranium only"], correct:0 },
+  { type:"mc", q:"What research helped lead to microwaves and materials technologies?", opts:["Radar and miniature electronics research","Astronomical observations","Nuclear medicine only","Study of falling bodies"], correct:0 },
+  { type:"mc", q:"Which Filipino innovator invented the Sing-Along System, commonly associated with karaoke?", opts:["Gregorio Zara","Eduardo San Juan","Roberto del Rosario","Fe del Mundo"], correct:2 },
+  { type:"mc", q:"What was Roberto del Rosario's main physics focus?", opts:["Mechanical Engineering","Sound Waves & Electromagnetism","Heat Transfer","Particle Physics"], correct:1 },
+  { type:"mc", q:"Who invented a videophone prototype in 1962?", opts:["Roberto del Rosario","Gregorio Zara","Eduardo San Juan","Fe del Mundo"], correct:1 },
+  { type:"mc", q:"What did Gregorio Zara's videophone prototype allow callers to do?", opts:["Measure temperature remotely","See each other onscreen","Control a lunar rover","Detect radioactivity"], correct:1 },
+  { type:"mc", q:"Who contributed to the design of the lunar rover used during the 1971 NASA Moon exploration?", opts:["Eduardo San Juan","Gregorio Zara","Roberto del Rosario","Henri Becquerel"], correct:0 },
+  { type:"mc", q:"What field was Eduardo San Juan associated with?", opts:["Heat Transfer","Mechanical Engineering","Sound Waves","Astrophysics"], correct:1 },
+  { type:"mc", q:"Who devised a low-cost bamboo incubator?", opts:["Fe del Mundo","Gregorio Zara","Roberto del Rosario","Marie Curie"], correct:0 },
+  { type:"mc", q:"What physics concept did the bamboo incubator apply?", opts:["Thermodynamics and heat transfer","Particle acceleration","Buoyancy","Photoelectric effect"], correct:0 },
+  { type:"mc", q:"Which career cluster focuses on macro scale phenomena and fundamental particle interactions?", opts:["Healthcare, Education & Communication","Technology, Systems & Data","Earth, Space & Research","Business & Finance"], correct:2 },
+  { type:"mc", q:"Which career cluster involves programming, complex systems, and materials engineering?", opts:["Technology, Systems & Data","Earth, Space & Research","Healthcare, Education & Communication","Arts & Design"], correct:0 },
+  { type:"mc", q:"Which career focuses on celestial objects and surrounding space?", opts:["Geophysicist","Astrophysicist","Data Scientist","Quality Control Analyst"], correct:1 },
+  { type:"mc", q:"Which agencies or organizations are associated with astrophysicists?", opts:["PHIVOLCS and DENR","PhilSA and NASA","DOST and PNRI","CERN and FPRDI"], correct:1 },
+  { type:"mc", q:"Which career studies the physical properties of Earth and natural resources?", opts:["Astrophysicist","Particle Physicist","Geophysicist","Solar Engineer"], correct:2 },
+  { type:"mc", q:"Which agencies are associated with geophysicists?", opts:["PHIVOLCS and DENR","NASA and PhilSA","CERN and PAGASA","PNRI and ASTI"], correct:0 },
+  { type:"mc", q:"Which career studies quarks, leptons, and bosons using particle accelerators?", opts:["Systems Analyst","Particle Physicist","Geophysicist","Solar Engineer"], correct:1 },
+  { type:"mc", q:"Where is CERN, a major organization associated with particle physics, located?", opts:["Japan","Switzerland","Philippines","United States"], correct:1 },
+  { type:"mc", q:"Which career analyzes vast amounts of data to solve complex problems?", opts:["Data Scientist","Observatory Researcher","Solar Engineer","Strength of Materials Analyst"], correct:0 },
+  { type:"mc", q:"Which career develops and installs renewable solar energy technologies?", opts:["Quality Control Analyst","Solar Engineer","Particle Physicist","Systems Analyst"], correct:1 },
+  { type:"mc", q:"Which career performs physical measurements to ensure manufactured products meet defect-free standards?", opts:["Quality Control Analyst","Astrophysicist","Geophysicist","Data Scientist"], correct:0 },
+
+  { type:"type", q:"Who discovered the lever principle and buoyancy?", answers:["Archimedes"], time: 30 },
+  { type:"type", q:"Who discovered radioactivity from uranium?", answers:["Henri Becquerel","Becquerel"], time: 30},
+  { type:"type", q:"What equation represents the energy of a photon?(Prolly wont be in the exam)", answers:["E = hf","E=hf"], time: 30 },
+  { type:"type", q:"Who invented the Sing-Along System associated with karaoke?", answers:["Roberto del Rosario","Roberto Del Rosario"], time: 30 },
+  { type:"type", q:"Who invented the videophone prototype in 1962?", answers:["Gregorio Zara"], time: 30 },
+  { type:"type", q:"Who contributed to the design of the lunar rover used in the 1971 NASA Moon exploration?", answers:["Eduardo San Juan"], time: 30},
+  { type:"type", q:"Who devised the low-cost bamboo incubator?", answers:["Fe del Mundo","Dr. Fe del Mundo"], time: 30 },
+  { type:"type", q:"Which career studies minute elementary particles such as quarks, leptons, and bosons?", answers:["Particle Physicist","Particle physicist"], time: 30 },
+  { type:"type", q:"Which career studies the physical properties of Earth and natural resources?", answers:["Geophysicist"], time: 30},
+  { type:"type", q:"Which career focuses on observing and analyzing data from celestial objects and surrounding space?", answers:["Astrophysicist"], time: 30 }
+];
+QUESTIONS_DB["Term 1"]["Physics"]["Lesson 2"] = [
+  { type:"mc", q:"What is measurement?", opts:["The process of estimating values","The art of comparing unknown values to a standard","The process of converting units","A type of physical quantity"], correct:1 },
+  { type:"mc", q:"What are units?", opts:["Numbers without measurements","The standard in which physical quantities are expressed","The estimated digits in a measurement","Conversion factors"], correct:1 },
+  { type:"mc", q:"What is a physical quantity?", opts:["Something that cannot be measured","A number without a unit","Something measurable that consists of a magnitude","A conversion factor"], correct:2 },
+  { type:"mc", q:"What is the magnitude of a measurement?", opts:["Only its numerical value","Only its unit","A number and a unit","A conversion factor"], correct:2 },
+  { type:"mc", q:"In the measurement 4.5 m, what is the number?", opts:["m","4.5","meter","4.5 m"], correct:1 },
+  { type:"mc", q:"Which type of physical quantity consists of basic quantities that are independent of one another?", opts:["Derived quantities","Fundamental quantities","Converted quantities","Estimated quantities"], correct:1 },
+  { type:"mc", q:"What are derived quantities?", opts:["Basic quantities that are independent","A combination of fundamental quantities","Units without numbers","Measurements with no magnitude"], correct:1 },
+  { type:"mc", q:"Which of the following is NOT one of the seven fundamental quantities?", opts:["Mass","Length","Speed","Time"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for mass?", opts:["Gram (g)","Kilogram (kg)","Pound (lb)","Milligram (mg)"], correct:1 },
+  { type:"mc", q:"What is the SI base unit for length?", opts:["Meter (m)","Centimeter (cm)","Kilometer (km)","Foot (ft)"], correct:0 },
+  { type:"mc", q:"What is the SI base unit for time?", opts:["Minute","Hour","Second (sec)","Day"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for electric current?", opts:["Volt (V)","Ampere (A)","Ohm (Ω)","Watt (W)"], correct:1 },
+  { type:"mc", q:"What is the SI base unit for temperature?", opts:["Celsius (°C)","Fahrenheit (°F)","Kelvin (K)","Joule (J)"], correct:2 },
+  { type:"mc", q:"What is the SI base unit for amount of substance?", opts:["Mole (mol)","Gram (g)","Liter (L)","Candela (cd)"], correct:0 },
+  { type:"mc", q:"What is the SI base unit for luminous intensity?", opts:["Lux (lx)","Candela (cd)","Watt (W)","Lumen (lm)"], correct:1 },
+  { type:"mc", q:"Which memory tip represents the seven fundamental quantities?", opts:["MLT-EATL","EATL-MLT","MTL-LEAT","MLT-ATEL"], correct:0 },
+  { type:"mc", q:"How many particles or atoms are approximately contained in one mole?", opts:["6.022 × 10²³","9.192 × 10⁹","3.00 × 10⁸","1.01 × 10⁵"], correct:0 },
+  { type:"mc", q:"What do significant figures represent?", opts:["The units used in a measurement","The number of reliably known digits in a number","Only the estimated digits","The conversion factor of a measurement"], correct:1 },
+  { type:"mc", q:"Which measurement is more precise?", opts:["2.5","2.55","Both are equally precise","Neither is measurable"], correct:1 },
+  { type:"mc", q:"In addition and subtraction, what determines the number of decimal places in the answer?", opts:["The measurement with the most decimal places","The measurement with the fewest decimal places","The largest number","The smallest number"], correct:1 },
+  { type:"mc", q:"In multiplication and division, what determines the number of significant figures in the answer?", opts:["The measurement with the most significant figures","The measurement with the fewest significant figures","The largest measurement","The number of decimal places only"], correct:1 },
+  { type:"mc", q:"What is a conversion factor used for?", opts:["Changing one set of units to another","Determining significant figures","Measuring temperature only","Finding the magnitude of a quantity"], correct:0 },
+  { type:"mc", q:"How many centimeters are equivalent to 1 meter?", opts:["10 cm","100 cm","1000 cm","0.01 cm"], correct:1 },
+  { type:"mc", q:"How many meters are equivalent to 1 kilometer?", opts:["10 m","100 m","1000 m","10,000 m"], correct:2 },
+  { type:"mc", q:"Approximately how many feet are in 1 meter according to the reviewer?", opts:["2.54 ft","3.28 ft","5.28 ft","10 ft"], correct:1 },
+  { type:"mc", q:"How many grams are equivalent to 1 kilogram?", opts:["10 g","100 g","1000 g","10,000 g"], correct:2 },
+  { type:"mc", q:"Approximately how many liters are in 1 gallon?", opts:["1.00 L","2.54 L","3.79 L","10.00 L"], correct:2 },
+  { type:"mc", q:"What is approximately equivalent to 1 cc?", opts:["1 mL","10 mL","100 mL","1 L"], correct:0 },
+  { type:"mc", q:"What is the approximate pressure equivalent of 1 atmosphere?", opts:["14.7 psi","760 psi","1.01 psi","100 psi"], correct:0 },
+  { type:"mc", q:"Which formula converts Fahrenheit to Celsius?", opts:["°C = °F + 273","°C = (°F − 32) / 1.8","°C = 1.8°F + 32","K = °F + 273"], correct:1 },
+
+  { type:"type", q:"What is the SI base unit for mass?", answers:["kilogram","kg","Kilogram","Kilogram (kg)"] },
+  { type:"type", q:"What is the SI base unit for length?", answers:["meter","m","Meter","Meter (m)"] },
+  { type:"type", q:"What is the SI base unit for electric current?", answers:["ampere","A","Ampere","Ampere (A)"] },
+  { type:"type", q:"What is the SI base unit for temperature?", answers:["kelvin","K","Kelvin","Kelvin (K)"] },
+  { type:"type", q:"What is the SI base unit for amount of substance?", answers:["mole","mol","Mole","Mole (mol)"] },
+  { type:"type", q:"What is the SI base unit for luminous intensity?", answers:["candela","cd","Candela","Candela (cd)"] },
+  { type:"type", q:"How many fundamental quantities are there in the SI system?", answers:["7","seven","Seven"] },
+  { type:"type", q:"What is the term for a value used to change one set of units to another?", answers:["conversion factor","Conversion factor"] },
+  { type:"type", q:"What is the rule for addition and subtraction involving significant figures?", answers:["limit by decimal places","decimal places","fewest decimal places"] },
+  { type:"type", q:"What is the rule for multiplication and division involving significant figures?", answers:["limit by significant figures","significant figures","fewest significant figures"] }
+];
+QUESTIONS_DB["Term 1"]["Physics"]["Lesson 3"] = [
+  { type:"mc", q:"What is displacement?", opts:["The total path length traveled","The change in position of an object","The rate of change of distance","The rate of change of velocity"], correct:1 },
+  { type:"mc", q:"Which formula is used to calculate displacement?", opts:["d = xf − xi","v = d/t","a = (vf − vi)/t","d = vt²"], correct:0 },
+  { type:"mc", q:"What type of quantity is displacement?", opts:["Scalar","Vector","Unitless","Derived scalar only"], correct:1 },
+  { type:"mc", q:"What is the main difference between distance and displacement?", opts:["Distance has direction while displacement does not","Distance is a vector while displacement is a scalar","Distance is total path length while displacement is change in position","They are exactly the same"], correct:2 },
+  { type:"mc", q:"What is velocity?", opts:["The rate of change of displacement with respect to time","The total distance traveled","The rate of change of velocity","The total path length"], correct:0 },
+  { type:"mc", q:"Which formula represents velocity?", opts:["v = d/t","v = at","v = d + t","v = (vf − vi)/d"], correct:0 },
+  { type:"mc", q:"What is average velocity?", opts:["Total distance divided by total time","Total displacement divided by total time","Final velocity divided by initial velocity","Acceleration divided by time"], correct:1 },
+  { type:"mc", q:"Which statement correctly describes speed?", opts:["It is the rate of change of displacement","It is a vector quantity","It is the rate of change of distance","It always has a direction"], correct:2 },
+  { type:"mc", q:"What is acceleration?", opts:["The rate of change of displacement","The rate of change of velocity","The total distance traveled","The change in position"], correct:1 },
+  { type:"mc", q:"Which formula represents acceleration?", opts:["a = d/t","a = (vf − vi)/t","a = vt","a = d + t"], correct:1 },
+  { type:"mc", q:"Which quantity is a scalar?", opts:["Velocity","Displacement","Acceleration","Distance"], correct:3 },
+  { type:"mc", q:"Which quantity is a vector?", opts:["Speed","Distance","Velocity","Time"], correct:2 },
+  { type:"mc", q:"An object travels 20 m east and then 20 m west back to its starting point. What is its displacement?", opts:["40 m east","20 m west","20 m east","0 m"], correct:3 },
+  { type:"mc", q:"An object travels 20 m east and then 20 m west. What is the total distance traveled?", opts:["0 m","20 m","40 m","10 m"], correct:2 },
+  { type:"mc", q:"If an object has a positive acceleration while moving in the positive direction, what generally happens?", opts:["It speeds up","It stops immediately","It moves backward","Its velocity becomes zero"], correct:0 },
+  { type:"mc", q:"According to the reviewer, negative acceleration while moving in the positive direction indicates:", opts:["Speeding up","Slowing down","Moving at constant speed","Changing direction immediately"], correct:1 },
+  { type:"mc", q:"Which quantity measures the rate of change of displacement?", opts:["Distance","Speed","Velocity","Acceleration"], correct:2 },
+  { type:"mc", q:"Which quantity measures the rate of change of velocity?", opts:["Displacement","Acceleration","Distance","Speed"], correct:1 },
+  { type:"type", q:"What is the formula for displacement?", answers:["d = xf − xi","d=xf-xi","xf − xi"] },
+  { type:"type", q:"What is the formula for velocity?", answers:["v = d/t","v=d/t"] }
+];
+QUESTIONS_DB["Term 1"]["Physics"]["Lesson 4"] = [
+  { type:"mc", q:"What does the slope of a position-time graph represent?", opts:["Acceleration","Distance","Velocity","Displacement"], correct:2 },
+  { type:"mc", q:"What does a flat line on a position-time graph indicate?", opts:["Constant acceleration","The object is at rest","Increasing velocity","Negative acceleration"], correct:1 },
+  { type:"mc", q:"What does a straight sloped line on a position-time graph indicate?", opts:["Constant velocity","Changing velocity","Zero displacement","No motion"], correct:0 },
+  { type:"mc", q:"What does a curved line on a position-time graph indicate?", opts:["The object is definitely at rest","Changing velocity and acceleration is present","Constant velocity","Zero acceleration"], correct:1 },
+  { type:"mc", q:"What does a steeper slope on a position-time graph indicate?", opts:["Slower motion","Faster speed","Zero velocity","Less displacement"], correct:1 },
+  { type:"mc", q:"What does the slope of a velocity-time graph represent?", opts:["Displacement","Velocity","Acceleration","Distance"], correct:2 },
+  { type:"mc", q:"What does the area under a velocity-time graph represent?", opts:["Acceleration","Displacement","Velocity","Time"], correct:1 },
+  { type:"mc", q:"What does a horizontal line on a velocity-time graph indicate?", opts:["Constant velocity and zero acceleration","Constant acceleration","Increasing velocity","Zero displacement"], correct:0 },
+  { type:"mc", q:"What does a sloped straight line on a velocity-time graph indicate?", opts:["Constant velocity","Uniform acceleration","No acceleration","Zero displacement"], correct:1 },
+  { type:"mc", q:"If a velocity-time graph is above the x-axis, what does this indicate?", opts:["Motion in the negative direction","The object is at rest","Motion in the positive direction","Negative acceleration only"], correct:2 },
+  { type:"mc", q:"If a velocity-time graph is below the x-axis, what does this indicate?", opts:["Motion in the positive direction","Motion in the negative direction","The object is stationary","Positive displacement only"], correct:1 },
+  { type:"mc", q:"What does the area under an acceleration-time graph represent?", opts:["Velocity","Displacement","Change in velocity","Distance"], correct:2 },
+  { type:"mc", q:"What does a horizontal acceleration-time graph indicate?", opts:["Constant acceleration","Constant displacement","Changing acceleration","Zero velocity"], correct:0 },
+  { type:"mc", q:"What does an acceleration-time graph lying flat at zero indicate?", opts:["Constant acceleration greater than zero","No acceleration and constant velocity","Increasing acceleration","Negative velocity"], correct:1 },
+  { type:"mc", q:"On which graph does the slope represent velocity?", opts:["Position-time graph","Velocity-time graph","Acceleration-time graph","Distance-time graph only"], correct:0 },
+  { type:"mc", q:"On which graph does the slope represent acceleration?", opts:["Position-time graph","Velocity-time graph","Acceleration-time graph","Distance-time graph"], correct:1 },
+  { type:"mc", q:"On which graph does the area under the curve represent displacement?", opts:["Position-time graph","Velocity-time graph","Acceleration-time graph","None"], correct:1 },
+  { type:"mc", q:"On which graph does the area under the curve represent change in velocity?", opts:["Position-time graph","Velocity-time graph","Acceleration-time graph","Distance-time graph"], correct:2 },
+  { type:"type", q:"What does the slope of a position-time graph represent?", answers:["velocity","Velocity"] },
+  { type:"type", q:"What does the area under a velocity-time graph represent?", answers:["displacement","Displacement"] }
+];
+QUESTIONS_DB["Term 1"]["Physics"]["Lesson 5"] = [
+  { type:"mc", q:"What do kinematic equations describe?", opts:["The relationships between displacement, velocity, and time","Only the mass of an object","Only gravitational force","The chemical properties of matter"], correct:0 },
+  { type:"mc", q:"Kinematic equations are valid when acceleration is:", opts:["Always increasing","Uniform or constant","Always zero","Random"], correct:1 },
+  { type:"mc", q:"Which equation solves for final velocity when displacement is not involved?", opts:["vf = vi + at","d = vi·t + ½at²","vf² = vi² + 2ad","d = ((vf + vi)/2)t"], correct:0 },
+  { type:"mc", q:"Which equation can be used to find displacement when acceleration is not directly involved?", opts:["vf = vi + at","d = ((vf + vi)/2)t","vf² = vi² + 2ad","a = (vf − vi)/t"], correct:1 },
+  { type:"mc", q:"Which equation is useful when final velocity is not given?", opts:["vf = vi + at","d = vi·t + ½at²","vf² = vi² + 2ad","v = d/t"], correct:1 },
+  { type:"mc", q:"Which kinematic equation does not involve time?", opts:["vf = vi + at","d = ((vf + vi)/2)t","d = vi·t + ½at²","vf² = vi² + 2ad"], correct:3 },
+  { type:"mc", q:"In the kinematic equations, what does d represent?", opts:["Time","Acceleration","Displacement","Final velocity"], correct:2 },
+  { type:"mc", q:"In the kinematic equations, what does vi represent?", opts:["Initial velocity","Final velocity","Average velocity","Instantaneous acceleration"], correct:0 },
+  { type:"mc", q:"In the kinematic equations, what does vf represent?", opts:["Initial velocity","Final velocity","Displacement","Time"], correct:1 },
+  { type:"mc", q:"In the kinematic equations, what does a represent?", opts:["Area","Acceleration","Average velocity","Distance"], correct:1 },
+  { type:"mc", q:"In the kinematic equations, what does t represent?", opts:["Temperature","Time","Trajectory","Total distance"], correct:1 },
+  { type:"mc", q:"A racer starts from rest and accelerates at 2.00 m/s² for 6.00 s. How far does the racer travel?", opts:["12.0 m","18.0 m","36.0 m","72.0 m"], correct:2 },
+  { type:"mc", q:"What is the initial velocity of an object that starts from rest?", opts:["−9.8 m/s","1 m/s","0 m/s","9.8 m/s"], correct:2 },
+  { type:"mc", q:"What is free fall?", opts:["Motion caused solely by the gravitational field","Any motion involving air resistance","Motion with no acceleration","Motion caused by a person's force"], correct:0 },
+  { type:"mc", q:"What is the acceleration due to gravity used in the reviewer?", opts:["+9.8 m/s²","−9.8 m/s²","−32 m/s²","+32 m/s²"], correct:1 },
+  { type:"mc", q:"What is the acceleration due to gravity in English units according to the reviewer?", opts:["−9.8 ft/s²","−32 ft/s²","+32 m/s²","−9.8 m/s²"], correct:1 },
+  { type:"mc", q:"According to the reviewer's sign convention, upward velocity is:", opts:["Negative","Positive","Always zero","Undefined"], correct:1 },
+  { type:"mc", q:"According to the reviewer's sign convention, downward velocity is:", opts:["Positive","Negative","Always zero","Undefined"], correct:1 },
+  { type:"mc", q:"At the highest point of an upward throw, what is the object's velocity?", opts:["Maximum positive","−9.8 m/s","0 m/s","Always increasing"], correct:2 },
+  { type:"mc", q:"At the highest point of an upward throw, what happens to acceleration?", opts:["It becomes zero","It remains −9.8 m/s²","It becomes positive","It disappears"], correct:1 },
+  { type:"mc", q:"An object dropped from a height has what initial velocity?", opts:["0 m/s","9.8 m/s","−9.8 m/s","The height of the object"], correct:0 },
+  { type:"mc", q:"For an object thrown downward, how is the initial velocity represented under the reviewer's convention?", opts:["Positive","Negative","Zero","Undefined"], correct:1 },
+  { type:"mc", q:"For an object thrown upward, what happens to its velocity as it rises?", opts:["It increases indefinitely","It decreases until reaching zero at the highest point","It immediately becomes negative","It remains constant"], correct:1 },
+  { type:"mc", q:"When an object reaches the highest point of an upward throw, what happens next?", opts:["It remains there permanently","It begins coming back down","It disappears","Its acceleration becomes zero"], correct:1 },
+  { type:"mc", q:"When analyzing the downward segment from the highest point, what is the initial velocity?", opts:["9.8 m/s","−9.8 m/s","0 m/s","The original throwing velocity"], correct:2 },
+  { type:"mc", q:"According to the reviewer, an object takes what amount of time to travel upward and return downward to the same starting point?", opts:["More time going up","More time going down","The same amount of time","Zero time going down"], correct:2 },
+  { type:"mc", q:"Which variable should replace acceleration when solving a free-fall problem?", opts:["d","g","t","vf"], correct:1 },
+  { type:"mc", q:"Which value is used for g in SI free-fall problems?", opts:["−9.8 m/s²","+9.8 m/s²","−32 m/s²","+32 ft/s²"], correct:0 },
+  { type:"mc", q:"Which kinematic equation is best when initial velocity, acceleration, and time are known but final velocity is not?", opts:["vf = vi + at","d = vi·t + ½at²","vf² = vi² + 2ad","d = ((vf + vi)/2)t"], correct:1 },
+  { type:"mc", q:"Which kinematic equation is best when initial velocity, acceleration, and displacement are known but time is not?", opts:["vf = vi + at","d = vi·t + ½at²","vf² = vi² + 2ad","d = ((vf + vi)/2)t"], correct:2 },
+  { type:"mc", q:"If an object is moving upward during free fall, what is the direction of its acceleration according to the reviewer?", opts:["Upward","Downward","Zero","It depends on its velocity"], correct:1 },
+  { type:"mc", q:"If an object is moving downward during free fall, what is the direction of its acceleration according to the reviewer?", opts:["Upward","Downward","Zero","It depends on its height"], correct:1 },
+  { type:"mc", q:"Which statement about gravity at the highest point of an upward throw is correct?", opts:["Gravity stops acting","Velocity and acceleration are both zero","Velocity is zero but acceleration is still −9.8 m/s²","Acceleration becomes positive"], correct:2 },
+  { type:"mc", q:"Which condition is required for the four main kinematic equations to be directly applicable?", opts:["Constant acceleration","Constant mass only","Zero velocity","Constant displacement"], correct:0 },
+  { type:"mc", q:"A car starts from rest and accelerates at 3.0 m/s² for 4.0 s. What is its final velocity?", opts:["7.0 m/s","12.0 m/s","16.0 m/s","24.0 m/s"], correct:1 },
+  { type:"mc", q:"A runner moves with an initial velocity of 5.0 m/s and accelerates at 2.0 m/s² for 3.0 s. What is the runner's final velocity?", opts:["7.0 m/s","9.0 m/s","11.0 m/s","15.0 m/s"], correct:2 },
+  { type:"mc", q:"An object is dropped from rest and falls for 2.0 s. Using g = −9.8 m/s², what is its displacement?", opts:["−9.8 m","−19.6 m","−4.9 m","−39.2 m"], correct:1 },
+  { type:"mc", q:"A car travels at an initial velocity of 10 m/s and accelerates at 2 m/s² for 5 s. What is its displacement?", opts:["50 m","60 m","75 m","100 m"], correct:2 },
+  { type:"mc", q:"A bicycle has an initial velocity of 8 m/s and accelerates at 1.5 m/s² for 4 s. What is its displacement?", opts:["32 m","44 m","56 m","64 m"], correct:1 },
+  { type:"mc", q:"An object is dropped from rest and falls for 2.0 s. Using g = −9.8 m/s², what is its displacement?", opts:["−9.8 m","−19.6 m","−4.9 m","−39.2 m"], correct:0 },
+  { type:"mc", q:"An object is dropped from rest and falls for 3.0 s. Using g = −9.8 m/s², what is its final velocity?", opts:["−9.8 m/s","−19.6 m/s","−29.4 m/s","−39.2 m/s"], correct:2 },
+  { type:"mc", q:"A ball is thrown upward with an initial velocity of 19.6 m/s. Using g = −9.8 m/s², how long does it take to reach its highest point?", opts:["1.0 s","2.0 s","3.0 s","4.0 s"], correct:1 },
+  { type:"mc", q:"A ball is thrown upward at 19.6 m/s. What is its displacement when it reaches its highest point? Use g = −9.8 m/s².", opts:["9.8 m","19.6 m","39.2 m","1.96 m"], correct:1 },
+  { type:"mc", q:"An object has an initial velocity of 5 m/s, an acceleration of 3 m/s², and travels 16 m. What is its final velocity?", opts:["8 m/s","11 m/s","13 m/s","17 m/s"], correct:1 },
+  { type:"type", q:"What is the equation for final velocity under constant acceleration?", answers:["vf = vi + at","vf=vi+at"] },
+  { type:"type", q:"What is the equation for displacement when initial velocity and acceleration are known?", answers:["d = vi·t + ½at²","d=vi*t+1/2at^2","d = vi t + 1/2at^2"] },
+  { type:"type", q:"What is the approximate acceleration due to gravity in SI units?", answers:["−9.8 m/s²","-9.8 m/s²","9.8 m/s²"] },
+  { type:"type", q:"What is the velocity of an object at the highest point of an upward throw?", answers:["0 m/s","0"] },
+  { type:"type", q:"What is the equation that does not contain time?", answers:["vf² = vi² + 2ad","vf^2 = vi^2 + 2ad"] },
+  { type:"type", q:"What type of acceleration is required for the kinematic equations to work?", answers:["constant acceleration","uniform acceleration","Constant acceleration","Uniform acceleration"] }
+];
+
+/*========================================================================= */
+                          /*FINITE MATHEMATICS*/
+/*========================================================================= */
+
+
+/*========================================================================= */
+                        /*EMPOWERMENT TECHNOLOGIES*/
+/*========================================================================= */
+
+QUESTIONS_DB["Term 1"]["Empowerment Technologies"]["Lesson 1"] = [
+  { type:"mc", q:"What does ICT stand for?", opts:["Information and Communication Technology","Internet and Computing Technology","Integrated Computer Technology","Information and Computer Transfer"], correct:0 },
+  { type:"type", q:"The term for tools and technologies that give individuals and communities access to information, communication, education, and resources.", answers:["empowerment technologies"] },
+  { type:"mc", q:"Which term refers to designing, using, and disposing of ICT systems in ways that reduce environmental impact?", opts:["Green ICT","Cloud computing","Virtualization","E-waste management"], correct:0 },
+  { type:"type", q:"The acronym Green ICT stands for.", answers:["green information and communication technology"] },
+  { type:"mc", q:"Green ICT addresses which three issues in particular?", opts:["Carbon emissions, e-waste, energy consumption","Software bugs, viruses, hacking","Slow internet, weak signal, data caps","Screen size, battery life, storage space"], correct:0 },
+  { type:"mc", q:"Which core principle of Green ICT focuses on maximizing performance while minimizing energy use, both active and idle?", opts:["Energy Efficiency","Resource Conservation","Waste Reduction","Virtualization"], correct:0 },
+  { type:"mc", q:"Which core principle involves using recyclable, sustainable materials and designing products with a longer lifespan?", opts:["Resource Conservation","Energy Efficiency","Waste Reduction","Cloud Computing"], correct:0 },
+  { type:"mc", q:"Which core principle emphasizes proper disposal, recycling, or re-purposing of electronic products?", opts:["Waste Reduction","Energy Efficiency","Resource Conservation","Virtualization"], correct:0 },
+  { type:"mc", q:"Which core principle allows multiple virtual machines to run on a single physical machine?", opts:["Virtualization","Cloud Computing","Resource Conservation","Waste Reduction"], correct:0 },
+  { type:"type", q:"The term for running multiple virtual machines (VMs) on a single physical machine.", answers:["virtualization"] },
+  { type:"mc", q:"Which core principle centralizes resources in shared data centers, often improving energy/resource efficiency?", opts:["Cloud Computing","Virtualization","Energy Efficiency","Waste Reduction"], correct:0 },
+  { type:"type", q:"The term for all actions taken to properly dispose of electronic waste without harming the environment or health.", answers:["e-waste management","electronic waste management"] },
+  { type:"mc", q:"Which of the following is NOT listed as an example of e-waste?", opts:["Fresh produce","Home appliances","Entertainment devices","Office equipment"], correct:0 },
+  { type:"mc", q:"Which of these is a valuable material that can be recovered from e-waste?", opts:["Gold","Lead","Mercury","Cadmium"], correct:0 },
+  { type:"mc", q:"Which of these is a hazardous substance found in e-waste?", opts:["Mercury","Gold","Copper","Silver"], correct:0 },
+  { type:"type", q:"Name one hazardous substance found in e-waste (besides mercury and cadmium).", answers:["lead"] },
+  { type:"mc", q:"Toxic chemicals released that contaminate ground and surface water describe which environmental impact?", opts:["Soil and Water Pollution","Air Pollution","Resource Depletion","Energy Waste"], correct:0 },
+  { type:"mc", q:"Incinerating e-waste and releasing dioxins and furans into the air describes which impact?", opts:["Air Pollution","Soil and Water Pollution","Waste Reduction","Resource Conservation"], correct:0 },
+  { type:"mc", q:"Skin disorders, respiratory issues, and nervous system damage are examples of which health concern?", opts:["Risks of Direct Exposure","Long-Term Issues","Air Pollution","Soil Pollution"], correct:0 },
+  { type:"mc", q:"Cancer, reproductive issues, and kidney or lung disease from prolonged toxic exposure fall under which category?", opts:["Long-Term Issues","Risks of Direct Exposure","Air Pollution","Water Pollution"], correct:0 },
+  { type:"mc", q:"Recycling materials to save the energy needed to manufacture new devices relates to which resource benefit?", opts:["Conservation of Energy","Conserving Natural Resources","Waste Reduction","Air Quality"], correct:0 },
+  { type:"mc", q:"Recovering gold, silver, and rare earth metals from old devices relates to which resource benefit?", opts:["Conserving Natural Resources","Conservation of Energy","Air Pollution Control","Water Conservation"], correct:0 },
+  { type:"type", q:"The type of service you can hire to properly dispose of e-waste.", answers:["electronics recycling service","recycling service"] },
+  { type:"mc", q:"Which of the following is an example of an energy-efficient appliance category?", opts:["Inverter Appliances","Incandescent bulbs","Desktop towers","CRT monitors"], correct:0 },
+  { type:"mc", q:"Which lighting technology is cited as energy-efficient?", opts:["LED bulbs","Fluorescent tubes","Halogen lamps","Incandescent bulbs"], correct:0 },
+  { type:"mc", q:"Which storage device is cited as an energy-efficient office/consumer electronic?", opts:["Solid-State Drive (SSD)","Hard Disk Drive (HDD)","Floppy disk","Optical drive"], correct:0 },
+  { type:"type", q:"The term for a power strip designed to reduce energy waste (sometimes called an 'eco-plug').", answers:["smart power strip","eco-plug","smart power strips"] },
+  { type:"mc", q:"ICT encompasses which of the following together?", opts:["Hardware, software, networks, and services","Only hardware devices","Only internet browsers","Only mobile applications"], correct:0 },
+  { type:"mc", q:"Empowerment Technologies can include which of the following?", opts:["Basic digital literacy skills and advanced collaboration tools","Only advanced programming languages","Only hardware repair skills","Only social media use"], correct:0 },
+  { type:"type", q:"What 'Green IT' is meant to balance with technological progress.", answers:["ecological responsibility","environmental responsibility"] },
+  { type:"mc", q:"According to the reviewer, is Green IT only about meeting regulations and cutting costs?", opts:["No — it's also about the digital world evolving in harmony with the environment","Yes — that is its only purpose","No — it is solely about cutting costs","Yes — it has nothing to do with the environment"], correct:0 },
+  { type:"mc", q:"Which core principle deals specifically with reducing the number of physical servers needed?", opts:["Virtualization","Waste Reduction","Energy Efficiency","Resource Conservation"], correct:0 },
+  { type:"mc", q:"Which of these best describes 'Resource Conservation' as a Green ICT principle?", opts:["Judicious use of materials in design, manufacturing, and disposal","Only about turning off unused devices","Only about recycling paper","Only about reducing internet usage"], correct:0 },
+  { type:"type", q:"The term for the total set of fast-developing, converging technologies covering computers, software, networking, and telecom.", answers:["ict","information and communication technology"] },
+  { type:"mc", q:"Which of these is included under e-waste according to the reviewer?", opts:["Medical equipment","Fresh groceries","Clothing","Furniture"], correct:0 },
+  { type:"mc", q:"E-waste management includes which combination of actions?", opts:["Collection, recycling, and mindful disposal","Only collection","Only recycling","Only disposal"], correct:0 },
+  { type:"mc", q:"Which pair correctly matches a Green ICT principle with its benefit?", opts:["Virtualization — fewer physical servers needed","Waste Reduction — faster internet speeds","Energy Efficiency — more colorful displays","Resource Conservation — louder cooling fans"], correct:0 },
+  { type:"mc", q:"Which of these is classified as a health-related concern from e-waste exposure?", opts:["Respiratory issues","Slower internet","Higher electricity bills","Shorter battery life"], correct:0 },
+  { type:"type", q:"The general term for gases/chemicals in e-waste that are dangerous if not handled properly (e.g. lead, mercury, cadmium).", answers:["hazardous substances","toxic substances","hazardous materials"] },
+  { type:"mc", q:"Which of the following best summarizes the 'bottom line' of Green ICT in the reviewer?", opts:["Ensuring the digital world evolves in harmony with the environment","Making all devices free of charge","Eliminating the need for the internet","Replacing all hardware every year"], correct:0 }
+];
+QUESTIONS_DB["Term 1"]["Empowerment Technologies"]["Lesson 2"] = [
+  { type:"type", q:"Type the term for the on-demand availability of computing resources (like storage and infrastructure) as services over the internet.", answers:["cloud computing"] },
+  { type:"mc", q:"Cloud computing eliminates the need for individuals and businesses to do what?", opts:["Self-manage physical resources","Pay for any services at all","Use the internet","Hire IT staff entirely"], correct:0 },
+  { type:"mc", q:"Who owns and manages the remote servers used in cloud computing?", opts:["Service providers","Individual home users","Local schools","Government agencies only"], correct:0 },
+  { type:"mc", q:"Which cloud computing benefit allows access from anywhere with an internet connection and scaling up or down as needed?", opts:["Flexible","Efficient","Secure","Cost-effective"], correct:0 },
+  { type:"mc", q:"Which benefit lets enterprises develop and deploy new applications quickly without worrying about infrastructure?", opts:["Efficient","Flexible","Secure","Offers Strategic Value"], correct:0 },
+  { type:"mc", q:"Which benefit relates to providers staying on top of the latest innovations, giving enterprises a competitive edge?", opts:["Offers Strategic Value","Flexible","Cost-effective","Secure"], correct:0 },
+  { type:"mc", q:"Which benefit is linked to cloud security generally being stronger than typical enterprise data centers?", opts:["Secure","Flexible","Efficient","Cost-effective"], correct:0 },
+  { type:"mc", q:"Which benefit means enterprises only pay for the computing resources they actually use?", opts:["Cost-effective","Secure","Efficient","Offers Strategic Value"], correct:0 },
+  { type:"mc", q:"Type the three main cloud computing service models (any one is acceptable): IaaS, PaaS, or SaaS.", opts:["iaas","paas","saas","naas"], correct: 3 },
+  { type:"mc", q:"Which service model offers on-demand access to compute, storage, networking, and virtualization?", opts:["Infrastructure as a Service (IaaS)","Platform as a Service (PaaS)","Software as a Service (SaaS)","None of these"], correct:0 },
+  { type:"mc", q:"Which service model provides the highest level of control and most closely resembles on-premises IT?", opts:["IaaS","PaaS","SaaS","All equally"], correct:0 },
+  { type:"mc", q:"Which of these is an example of IaaS?", opts:["Microsoft Azure","Canva","Firebase","Microsoft 365"], correct:0 },
+  { type:"mc", q:"Which of these is an example of IaaS?", opts:["Google Compute Engine","Google Workspace","AWS Elastic Beanstalk","Google Drive"], correct:0 },
+  { type:"mc", q:"Which service model provides all the hardware and software resources needed for application development?", opts:["Platform as a Service (PaaS)","Infrastructure as a Service (IaaS)","Software as a Service (SaaS)","None of these"], correct:0 },
+  { type:"mc", q:"Which service model lets companies focus fully on application development without managing infrastructure?", opts:["PaaS","IaaS","SaaS","All equally"], correct:0 },
+  { type:"mc", q:"Which of these is an example of PaaS?", opts:["Google App Engine","Microsoft Azure","Canva","Google Workspace"], correct:0 },
+  { type:"mc", q:"Which of these is an example of PaaS?", opts:["Firebase","Google Compute Engine","Microsoft 365","Google Drive"], correct:0 },
+  { type:"mc", q:"Which of these is an example of PaaS?", opts:["AWS Elastic Beanstalk","Canva","Microsoft Azure","Google Drive"], correct:0 },
+  { type:"mc", q:"Which service model delivers a full application stack, from infrastructure to app maintenance and updates?", opts:["Software as a Service (SaaS)","Infrastructure as a Service (IaaS)","Platform as a Service (PaaS)","None of these"], correct:0 },
+  { type:"mc", q:"Which service model is often an end-user application where the provider manages both the service and the infrastructure?", opts:["SaaS","IaaS","PaaS","All equally"], correct:0 },
+  { type:"mc", q:"Which of these is an example of SaaS?", opts:["Canva","Google Compute Engine","AWS Elastic Beanstalk","Firebase"], correct:0 },
+  { type:"mc", q:"Which of these is an example of SaaS?", opts:["Microsoft 365","Microsoft Azure","Google App Engine","Google Compute Engine"], correct:0 },
+  { type:"mc", q:"Which of these is an example of SaaS?", opts:["Google Workspace/Drive","AWS Elastic Beanstalk","Firebase","Microsoft Azure"], correct:0 },
+  { type:"type", q:"Type the acronym for the cloud service model that offers on-demand IT infrastructure.", answers:["iaas"] },
+  { type:"type", q:"Type the acronym for the cloud service model aimed at application development.", answers:["paas"] },
+  { type:"type", q:"Type the acronym for the cloud service model that delivers a full application to end users.", answers:["saas"] },
+  { type:"mc", q:"Cloud service models are based on the concept of what?", opts:["Sharing on-demand resources over the internet","Building private data centers only","Avoiding the use of the internet","Manual data transfer via USB drives"], correct:0 },
+  { type:"mc", q:"Which cloud benefit is tied to avoiding investment in soon-to-be-obsolete technology?", opts:["Offers Strategic Value","Flexible","Secure","Cost-effective"], correct:0 },
+  { type:"mc", q:"Which cloud benefit means enterprises don't need to overbuild data center capacity for unexpected demand spikes?", opts:["Cost-effective","Flexible","Secure","Efficient"], correct:0 },
+  { type:"mc", q:"According to the reviewer, why is cloud computing security often considered strong?", opts:["Because of the depth and breadth of provider security mechanisms and expertise","Because cloud servers are never connected to the internet","Because cloud computing has no shared resources","Because only one company uses each server"], correct:0 },
+  { type:"mc", q:"What do companies access in cloud computing instead of owning physical infrastructure themselves?", opts:["A virtual pool of shared resources","A single dedicated personal server","A local area network only","A private satellite connection"], correct:0 },
+  { type:"mc", q:"Match: Firebase is an example of which service model?", opts:["PaaS","IaaS","SaaS","None"], correct:0 },
+  { type:"mc", q:"Match: Microsoft Azure is an example of which service model?", opts:["IaaS","PaaS","SaaS","None"], correct:0 },
+  { type:"mc", q:"Match: Canva is an example of which service model?", opts:["SaaS","IaaS","PaaS","None"], correct:0 },
+  { type:"mc", q:"Which model would a business choose if it wants the highest control over IT resources, similar to on-premises setups?", opts:["IaaS","PaaS","SaaS","None of these"], correct:0 },
+  { type:"mc", q:"Which model would a developer choose to build an app without managing servers or operating systems?", opts:["PaaS","IaaS","SaaS","None of these"], correct:0 },
+  { type:"mc", q:"Which model would an everyday user choose to just use a ready-made application like email or word processing?", opts:["SaaS","IaaS","PaaS","None of these"], correct:0 },
+  { type:"mc", q:"What allows enterprises to redirect IT staff to more strategic initiatives, according to the reviewer?", opts:["Cost-effectiveness of cloud computing","Buying more physical servers","Hiring more hardware technicians","Avoiding cloud computing altogether"], correct:0 },
+  { type:"mc", q:"What must businesses pay for under most cloud computing service models?", opts:["Only the resources they use","A flat fee regardless of usage","Physical server maintenance only","Nothing — it is always free"], correct:0 },
+  { type:"mc", q:"Which of the following is TRUE about cloud computing based on the reviewer?", opts:["It allows scaling services up or down as needed","It requires businesses to own their own servers","It removes the need for an internet connection","It cannot be used by enterprises"], correct:0 }
+];
+QUESTIONS_DB["Term 1"]["Empowerment Technologies"]["Lesson 3"] = [
+  { type:"type", q:"The term for long-term changes in global temperatures and weather patterns caused by human activities.", answers:["climate change"] },
+  { type:"mc", q:"Which of these is cited as a cause of climate change?", opts:["Burning fossil fuels","Recycling paper","Using LED bulbs","Cloud computing"], correct:0 },
+  { type:"mc", q:"Which of these is cited as a cause of climate change?", opts:["Deforestation","Virtualization","Software updates","Solar power use"], correct:0 },
+  { type:"mc", q:"Which of these is cited as a cause of climate change?", opts:["Industrial processes","E-waste recycling","Energy-efficient lighting","Cloud storage"], correct:0 },
+  { type:"type", q:"The term for taking actions that reduce or prevent the emission of greenhouse gases to slow global warming.", answers:["climate change mitigation"] },
+  { type:"type", q:"The term for gases that trap heat in the Earth's atmosphere.", answers:["greenhouse gases"] },
+  { type:"mc", q:"What happens when there are too many greenhouse gases in the atmosphere?", opts:["Global warming and climate change","Cooling of the planet","Increased internet speed","Reduced e-waste"], correct:0 },
+  { type:"type", q:"Type the term for the total amount of greenhouse gases generated by a person's or organization's actions.", answers:["carbon footprint"] },
+  { type:"mc", q:"Which ICT role involves tracking greenhouse gas emissions and predicting extreme weather events?", opts:["Monitoring and Data Analysis","Disaster Management","Raising Awareness","None of these"], correct:0 },
+  { type:"mc", q:"Which ICT role provides real-time information and communication during climate-related emergencies?", opts:["Disaster Management","Monitoring and Data Analysis","Raising Awareness","None of these"], correct:0 },
+  { type:"mc", q:"Which ICT role facilitates the dissemination of information to promote sustainable practices?", opts:["Raising Awareness","Disaster Management","Monitoring and Data Analysis","None of these"], correct:0 },
+  { type:"mc", q:"Which key technology analyzes historical and real-time data to predict floods, hurricanes, and earthquakes?", opts:["Artificial Intelligence and Machine Learning","Drones and Robotics","Mobile and Communication Technologies","Cloud Computing"], correct:0 },
+  { type:"mc", q:"Which key technology identifies patterns humans might miss, enabling early warnings and evacuation planning?", opts:["AI and Machine Learning","Drones and Robotics","Mobile and Communication Technologies","Virtualization"], correct:0 },
+  { type:"mc", q:"Which key technology provides aerial surveillance and access to hard-to-reach areas during disasters?", opts:["Drones and Robotics","AI and Machine Learning","Mobile and Communication Technologies","Cloud Computing"], correct:0 },
+  { type:"mc", q:"Which key technology assists in search-and-rescue operations in hazardous environments?", opts:["Robots","Mobile networks","AI algorithms","Cloud servers"], correct:0 },
+  { type:"mc", q:"Robots reduce risk to whom during disaster response, according to the reviewer?", opts:["Human responders","Government officials","Software developers","Cloud providers"], correct:0 },
+  { type:"mc", q:"Which key technology enables real-time communication between authorities and affected populations?", opts:["Mobile and Communication Technologies","AI and Machine Learning","Drones and Robotics","Cloud Computing"], correct:0 },
+  { type:"mc", q:"Advanced mobile networks, apps, and alert systems are examples of which key technology?", opts:["Mobile and Communication Technologies","AI and Machine Learning","Drones and Robotics","Virtualization"], correct:0 },
+  { type:"mc", q:"What does Raising Awareness include, according to the reviewer?", opts:["Educational campaigns and tools","Only disaster relief funding","Only satellite monitoring","Only new hardware development"], correct:0 },
+  { type:"mc", q:"What does Raising Awareness empower individuals and organizations to do?", opts:["Reduce their carbon footprints","Increase their electricity usage","Avoid using ICT altogether","Ignore climate data"], correct:0 },
+  { type:"mc", q:"Which of the following is NOT one of the three ICT roles in climate change mitigation listed in the reviewer?", opts:["Manufacturing","Monitoring and Data Analysis","Disaster Management","Raising Awareness"], correct:0 },
+  { type:"mc", q:"AI and Machine Learning help predict which of the following disasters?", opts:["Floods, hurricanes, and earthquakes","Software crashes","Internet outages","Power surges only"], correct:0 },
+  { type:"mc", q:"What is one benefit of early warning systems enabled by AI and ML?", opts:["Reduced casualties and economic losses","Increased greenhouse gas emissions","Slower disaster response","Higher carbon footprints"], correct:0 },
+  { type:"mc", q:"Which technology is best suited for real-time data collection in hard-to-reach disaster areas?", opts:["Drones","Desktop computers","Landline phones","Printers"], correct:0 },
+  { type:"mc", q:"Which of these best matches 'assessing environmental impacts and predicting extreme weather'?", opts:["Monitoring and Data Analysis","Disaster Management","Raising Awareness","None of these"], correct:0 },
+  { type:"mc", q:"Which ICT role would educational campaigns about climate change fall under?", opts:["Raising Awareness","Monitoring and Data Analysis","Disaster Management","None of these"], correct:0 },
+  { type:"mc", q:"Which ICT role would real-time flood alerts sent to a community fall under?", opts:["Disaster Management","Raising Awareness","Monitoring and Data Analysis","None of these"], correct:0 },
+  { type:"mc", q:"Which ICT role would tracking long-term greenhouse gas emission trends fall under?", opts:["Monitoring and Data Analysis","Disaster Management","Raising Awareness","None of these"], correct:0 },
+  { type:"type", q:"Type one human activity mentioned as a cause of climate change (fossil fuels, deforestation, or industrial processes).", answers:["burning fossil fuels","deforestation","industrial processes","fossil fuels"] },
+  { type:"mc", q:"What do greenhouse gases do to heat in the atmosphere?", opts:["Trap it","Release it into space","Convert it to electricity","Destroy it"], correct:0 },
+  { type:"mc", q:"Which term describes the amount of greenhouse gases generated by an individual's actions?", opts:["Carbon footprint","Climate footprint","Energy footprint","Emission footprint"], correct:0 },
+  { type:"mc", q:"Which of the following best defines climate change mitigation?", opts:["Reducing or preventing greenhouse gas emissions to slow global warming","Increasing fossil fuel usage for economic growth","Ignoring extreme weather predictions","Building more coal power plants"], correct:0 },
+  { type:"mc", q:"Which technology combination is used specifically for disaster management, according to the reviewer?", opts:["AI/ML, Drones/Robotics, and Mobile/Communication Technologies","Only cloud computing","Only virtualization","Only e-waste recycling"], correct:0 },
+  { type:"mc", q:"Why are AI and Machine Learning valuable for disaster prediction?", opts:["They identify patterns humans might miss","They eliminate the need for human responders entirely","They can control the weather","They replace the need for mobile networks"], correct:0 },
+  { type:"mc", q:"What is a key advantage of drones during disaster response?", opts:["Access to hard-to-reach areas for real-time data","Ability to repair damaged buildings","Ability to communicate directly with satellites only","Reducing greenhouse gas emissions directly"], correct:0 },
+  { type:"mc", q:"Which of the following would most directly help evacuate a community before a predicted hurricane?", opts:["AI-based early warning systems","A software update","A new laptop model","An e-waste recycling program"], correct:0 },
+  { type:"mc", q:"Which of these activities falls under 'Raising Awareness' rather than 'Disaster Management'?", opts:["Running an educational campaign about reducing carbon footprints","Sending a real-time flood alert","Deploying a search-and-rescue robot","Using AI to predict an earthquake"], correct:0 },
+  { type:"mc", q:"According to the reviewer, what long-term outcome does climate change mitigation aim for?", opts:["Slowing global warming","Increasing industrial output","Eliminating all technology use","Reducing internet access"], correct:0 },
+  { type:"mc", q:"Which of the following is an example of using ICT for monitoring rather than disaster response?", opts:["Tracking greenhouse gas emissions over time","Deploying a rescue drone during a flood","Sending an emergency alert during a hurricane","Coordinating a robot search-and-rescue mission"], correct:0 },
+  { type:"mc", q:"What is the overall purpose of ICT's role in climate change mitigation, as described in the reviewer?", opts:["To monitor, manage disasters, and raise awareness to reduce climate impact","To increase greenhouse gas production for economic growth","To replace all human decision-making with machines","To eliminate the need for environmental policy"], correct:0 }
+];
+QUESTIONS_DB["Term 1"]["Empowerment Technologies"]["Lesson 4"] = [
+{ type:"mc", q:"A program contains a bug that causes it to crash. What type of software maintenance is needed?",
+  opts:["Corrective maintenance","Preventive maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A software fault is discovered and fixed to prevent future problems. What type of maintenance is this?",
+  opts:["Preventive maintenance","Corrective maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"Users request new features and improvements for an existing application. What type of maintenance is this?",
+  opts:["Perfective maintenance","Corrective maintenance","Preventive maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A program is modified because the operating environment or technology has changed. What type of maintenance is this?",
+  opts:["Adaptive maintenance","Corrective maintenance","Preventive maintenance","Perfective maintenance"], correct:0 },
+{ type:"mc", q:"What is the general process of modifying and updating software after it has been deployed?",
+  opts:["Software maintenance","Software development","Software testing","Software installation"], correct:0 },
+{ type:"mc", q:"What type of software is used to locate, view, and navigate websites?",
+  opts:["Web browser","Word processor","Operating system","Antivirus program"], correct:0 },
+{ type:"mc", q:"What type of software is installed directly on a device and executed there?",
+  opts:["Locally installed software","Cloud-based software","Firmware","Malware"], correct:0 },
+{ type:"mc", q:"What type of software is accessed through the internet and runs on a dedicated server?",
+  opts:["Cloud-based software","Locally installed software","Firmware","Device driver"], correct:0 },
+{ type:"mc", q:"A developer releases an update specifically to fix reported bugs and errors. What type of maintenance is being performed?",
+  opts:["Corrective maintenance","Preventive maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"An application is modified so that it works with a changed technology or environment. What type of maintenance is this?",
+  opts:["Adaptive maintenance","Corrective maintenance","Preventive maintenance","Perfective maintenance"], correct:0 },
+{ type:"mc", q:"A programmer fixes an error that is causing a software feature to malfunction. What type of maintenance is this?",
+  opts:["Corrective maintenance","Preventive maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A developer makes changes to software to reduce the chance of future failures. What type of maintenance is this?",
+  opts:["Preventive maintenance","Corrective maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A software developer adds a feature requested by users. What type of maintenance is being performed?",
+  opts:["Perfective maintenance","Corrective maintenance","Preventive maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A program is changed so it can work with a newly updated operating system. What type of maintenance is this?",
+  opts:["Adaptive maintenance","Corrective maintenance","Preventive maintenance","Perfective maintenance"], correct:0 },
+{ type:"mc", q:"A software update improves an existing feature without fixing a bug. What type of maintenance is this?",
+  opts:["Perfective maintenance","Corrective maintenance","Preventive maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A developer examines software for possible weaknesses and makes changes before problems occur. What type of maintenance is this?",
+  opts:["Preventive maintenance","Corrective maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A program stops working because of an existing coding error, and the developer fixes the error. What type of maintenance is this?",
+  opts:["Corrective maintenance","Preventive maintenance","Perfective maintenance","Adaptive maintenance"], correct:0 },
+{ type:"mc", q:"A software application needs to be changed because its hardware or operating environment has changed. What type of maintenance is required?",
+  opts:["Adaptive maintenance","Corrective maintenance","Preventive maintenance","Perfective maintenance"], correct:0 },
+{ type:"mc", q:"A developer improves the usability and performance of an application based on user needs. What type of maintenance is this?",
+  opts:["Perfective maintenance","Corrective maintenance","Preventive maintenance","Adaptive maintenance"], correct:0 },
+  { type:"type", q:"What are the four main types of software maintenance?", answers:["Corrective, Preventive, Perfective, and Adaptive","Corrective, preventive, perfective, adaptive"] }
+];
+QUESTIONS_DB["Term 1"]["Empowerment Technologies"]["Lesson 5"] = [
+  { type:"type", q:"A computer suddenly shuts down because it is not receiving enough electrical power. What should you check first?", answers:["Power supply (PSU)","PSU","Power supply"] },
+  { type:"type", q:"A monitor shows a blank screen because its cable is loose. What is the problem and solution?", answers:["Loose cable; reconnect/check the cable and port.","Loose cable","Reconnect/check the cable and port"] },
+  { type:"type", q:"A computer becomes extremely hot while running. What hardware component should be checked?", answers:["Cooling fans","Cooling fan"] },
+  { type:"type", q:"A computer becomes slow when many programs are open at the same time. What component may need an upgrade?", answers:["RAM"] },
+  { type:"type", q:"A computer cannot connect to Wi-Fi even though the network itself is working. What component should be checked?", answers:["NIC"] },
+  { type:"type", q:"A computer has difficulty displaying demanding 3D graphics. What component may be responsible?", answers:["GPU"] },
+  { type:"type", q:"Unsaved information disappears after the computer is powered off. What temporary-data component is involved?", answers:["RAM"] },
+  { type:"type", q:"A user cannot access files because the computer's long-term storage drive has failed. What should be checked or replaced?", answers:["Storage drive (HDD/SSD)","HDD/SSD","Storage drive"] },
+  { type:"type", q:"A computer has problems accessing data stored on spinning magnetic disks. What device is being described?", answers:["HDD"] },
+  { type:"type", q:"A user wants faster long-term storage that uses flash memory. What device should they use?", answers:["SSD"] },
+  { type:"type", q:"A keyboard is connected to the computer but does not respond. What should be checked?", answers:["Peripherals and accessories"] },
+  { type:"type", q:"A mouse works intermittently because its connection is loose. What should be inspected?", answers:["Cables and ports","Peripherals"] },
+  { type:"type", q:"A computer cannot communicate with a network because its network interface is malfunctioning. What component should be checked?", answers:["NIC"] },
+  { type:"type", q:"The CPU, RAM, and other components cannot communicate properly because the main circuit board has a problem. What component is faulty?", answers:["Motherboard"] },
+  { type:"type", q:"A computer overheats because its cooling system is not regulating its temperature. What should be checked?", answers:["Cooling fans","Cooling fan"] },
+  { type:"type", q:"A computer cannot execute instructions even though its other components are functioning. What major component should be checked?", answers:["CPU"] },
+  { type:"type", q:"A computer receives electricity from the wall outlet, but the internal components are not receiving the proper form of power. What component is responsible?", answers:["PSU","Power supply"] },
+  { type:"type", q:"A laptop's graphics processor is malfunctioning. Where is the GPU commonly located in a laptop?", answers:["Integrated into the main chip or soldered to the motherboard"] },
+  { type:"type", q:"A smartphone has a problem with graphics processing. Where is its GPU usually located?", answers:["Inside the SoC","SoC"] },
+  { type:"type", q:"What are the five common hardware troubleshooting steps?", answers:["Check power supply → check cables and ports → check drivers and firmware → check peripherals and accessories → check RAM and hard drive"] },
+  { type:"mc", q:"Which component is commonly called the \"brain\" of the computer?", opts:["RAM","CPU","GPU","PSU"], correct:1 },
+  { type:"mc", q:"Which component connects the CPU, RAM, storage, and other components?", opts:["Motherboard","GPU","PSU","NIC"], correct:0 },
+  { type:"mc", q:"Which component is temporary, high-speed memory?", opts:["HDD","SSD","RAM","PSU"], correct:2 },
+  { type:"mc", q:"Which component is volatile?", opts:["HDD","SSD","RAM","Motherboard"], correct:2 },
+  { type:"mc", q:"Which device forwards data packets between networks?", opts:["NIC","Modem","Router","SSD"], correct:2 },
+  { type:"mc", q:"Which component converts outlet power into the form needed by internal computer components?", opts:["GPU","PSU","CPU","RAM"], correct:1 },
+  { type:"mc", q:"Which storage device uses spinning magnetic disks?", opts:["SSD","HDD","RAM","GPU"], correct:1 },
+  { type:"mc", q:"Which component renders images, video, and 3D graphics?", opts:["PSU","GPU","NIC","Motherboard"], correct:1 },
+  { type:"mc", q:"Which of the following is an input device?", opts:["Monitor","Printer","Keyboard","Speaker"], correct:2 },
+  { type:"mc", q:"Which of the following is an output device?", opts:["Mouse","Microphone","Webcam","Monitor"], correct:3 },
+  { type:"mc", q:"Which storage device uses integrated circuit chips and flash memory?", opts:["HDD","SSD","RAM","PSU"], correct:1 },
+  { type:"mc", q:"Which device forwards packets between networks?", opts:["Modem","Router","NIC","SSD"], correct:1 },
+  { type:"mc", q:"Which device connects a network to the internet?", opts:["Modem","GPU","RAM","CPU"], correct:0 },
+  { type:"mc", q:"Which component connects a device to a network through Ethernet or Wi-Fi?", opts:["NIC","PSU","CPU","HDD"], correct:0 },
+  { type:"mc", q:"Which motherboard form factor is the smallest?", opts:["ATX","Micro-ATX","Mini-ITX","Full ATX"], correct:2 },
+  { type:"mc", q:"Which motherboard form factor is mid-sized?", opts:["Mini-ITX","Micro-ATX","ATX","Mobile-ATX"], correct:1 },
+  { type:"mc", q:"Which motherboard form factor is full-sized and most common?", opts:["Mini-ITX","Micro-ATX","ATX","Mobile-ATX"], correct:2 },
+  { type:"mc", q:"Which component performs the Fetch → Decode → Execute cycle?", opts:["CPU","GPU","RAM","PSU"], correct:0 },
+  { type:"mc", q:"Which CPU step retrieves an instruction from memory?", opts:["Execute","Decode","Fetch","Store"], correct:2 },
+  { type:"mc", q:"Which CPU step interprets an instruction?", opts:["Fetch","Decode","Execute","Store"], correct:1 },
+  { type:"mc", q:"Which CPU step carries out an instruction?", opts:["Fetch","Decode","Execute","Retrieve"], correct:2 },
+  { type:"mc", q:"Which component is usually located near the CPU on the motherboard?", opts:["RAM","Modem","Monitor","Router"], correct:0 },
+  { type:"mc", q:"In a typical PC, where is the GPU commonly located?", opts:["Keyboard","Graphics card plugged into the motherboard","PSU","Monitor"], correct:1 },
+  { type:"mc", q:"Where is a laptop GPU commonly located?", opts:["Keyboard","Integrated into the main chip or soldered to the motherboard","Network cable","Monitor"], correct:1 },
+  { type:"mc", q:"Where is a mobile phone's GPU usually located?", opts:["Inside the SoC","Router","PSU","Removable graphics card"], correct:0 },
+  { type:"mc", q:"Which device presents processed information visually?", opts:["Monitor","Mouse","Keyboard","NIC"], correct:0 },
+  { type:"mc", q:"Which device produces printed output?", opts:["Webcam","Printer","Microphone","Router"], correct:1 },
+  { type:"mc", q:"Which device captures sound as an input?", opts:["Speaker","Monitor","Microphone","Printer"], correct:2 },
+  { type:"mc", q:"Which device sends commands or data to a computer?", opts:["Keyboard","Monitor","Speaker","Printer"], correct:0 },
+  { type:"mc", q:"Which component processes large amounts of graphics data quickly and in parallel?", opts:["HDD","GPU","PSU","Motherboard"], correct:1 }
+];
+
+
+/* ========================= ENGINE — no touchy please ========================= */
+
+let nav = { term:null, subject:null, lesson:null };
+let quizState = {
+  idx:0, score:0, answered:false, timer:null, timeLeft:TIME_LIMIT,
+  streak:0, bestStreak:0, partCounts:{}, questions:[]
+};
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function normalize(str){ return str.trim().toLowerCase().replace(/\s+/g,' '); }
+
+function crumbHtml(){
+  const t = nav.term ? `<span class="on">${nav.term}</span>` : "Term";
+  const s = nav.subject ? `<span class="on">${nav.subject}</span>` : "Subject";
+  const l = nav.lesson ? `<span class="on">${nav.lesson}</span>` : "Lesson";
+  return `${t} &nbsp;›&nbsp; ${s} &nbsp;›&nbsp; ${l}`;
+}
+
+function renderTermMenu(){
+  nav = { term:null, subject:null, lesson:null };
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <div class="kicker label-mono">STEP 1 OF 3</div>
+      <h1>Choose a term</h1>
+      <p class="lede">Pick the term to start building your quiz.</p>
+      <div class="menu-grid">
+        ${TERMS.map(t=>`<button class="menu-btn" data-term="${t}">${t}</button>`).join('')}
+      </div>
+    </div>
+  `;
+  document.querySelectorAll('[data-term]').forEach(btn=>{
+    btn.onclick = ()=>{ nav.term = btn.dataset.term; renderSubjectMenu(); };
+  });
+}
+
+function renderSubjectMenu(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">STEP 2 OF 3</div>
+      <h1>Choose a subject</h1>
+      <div class="crumbs">${crumbHtml()}</div>
+      <div class="menu-grid">
+        ${SUBJECTS.map(s=>`<button class="menu-btn" data-subject="${s}">${s}</button>`).join('')}
+      </div>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderTermMenu;
+  document.querySelectorAll('[data-subject]').forEach(btn=>{
+    btn.onclick = ()=>{ nav.subject = btn.dataset.subject; renderLessonMenu(); };
+  });
+}
+
+function renderLessonMenu(){
+  const app = document.getElementById('app');
+  const subjData = QUESTIONS_DB[nav.term][nav.subject];
+  const allCount = LESSON_NUMBERS.reduce((sum,n)=> sum + subjData["Lesson "+n].length, 0);
+
+  const lessonButtons = LESSON_NUMBERS.map(n=>{
+    const key = "Lesson "+n;
+    const count = subjData[key].length;
+    return `<button class="menu-btn" data-lesson="${key}">Lesson ${n}<span class="count">${count} question${count===1?'':'s'}</span></button>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">STEP 3 OF 3</div>
+      <h1>Choose a lesson</h1>
+      <div class="crumbs">${crumbHtml()}</div>
+      <div class="menu-grid cols2">${lessonButtons}</div>
+      <div class="menu-grid">
+        <button class="menu-btn all-lessons" data-lesson="__ALL__">All Lessons<span class="count">${allCount} question${allCount===1?'':'s'} combined${allCount > ALL_LESSONS_LENGTH ? ' — random '+ALL_LESSONS_LENGTH+' each play' : ''}</span></button>
+      </div>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderSubjectMenu;
+  document.querySelectorAll('[data-lesson]').forEach(btn=>{
+    btn.onclick = ()=>{
+      nav.lesson = btn.dataset.lesson;
+      startSelectedQuiz();
+    };
+  });
+}
+
+function startSelectedQuiz(){
+  const subjData = QUESTIONS_DB[nav.term][nav.subject];
+  let pool = [];
+  let label = "";
+
+  if(nav.lesson === "__ALL__"){
+    LESSON_NUMBERS.forEach(n=>{ pool = pool.concat(subjData["Lesson "+n]); });
+    label = "All Lessons";
+  } else {
+    pool = subjData[nav.lesson].slice();
+    label = nav.lesson;
+  }
+
+  const shuffled = shuffle(pool);
+  const cap = nav.lesson === "__ALL__" ? ALL_LESSONS_LENGTH : QUIZ_LENGTH;
+  const selected = shuffled.length > cap ? shuffled.slice(0, cap) : shuffled;
+
+  quizState = {
+    idx:0, score:0, answered:false, timer:null, timeLeft:TIME_LIMIT,
+    streak:0, bestStreak:0, partCounts:{}, questions: selected
+  };
+
+  if(pool.length === 0){
+    renderEmptyState(label);
+    return;
+  }
+  renderQuestion();
+}
+
+function renderEmptyState(label){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="panel-card">
+      <button class="back-link" id="backBtn">‹ back</button>
+      <div class="kicker label-mono">${nav.term} · ${nav.subject}</div>
+      <h1>${label}</h1>
+      <div class="empty-note">No questions have been added for this selection yet — check back once they're filled in.</div>
+      <button class="btn-primary" id="menuBtn">Return to menu</button>
+    </div>
+  `;
+  document.getElementById('backBtn').onclick = renderLessonMenu;
+  document.getElementById('menuBtn').onclick = renderTermMenu;
+}
+
+function currentTimeLimit(q){ return (typeof q.time === "number") ? q.time : TIME_LIMIT; }
+
+function renderQuestion(){
+  clearInterval(quizState.timer);
+  const total = quizState.questions.length;
+  const q = quizState.questions[quizState.idx];
+  quizState.answered = false;
+  const limit = currentTimeLimit(q);
+  quizState.timeLeft = limit;
+
+  const app = document.getElementById('app');
+  const pct = (quizState.idx/total)*100;
+  const tag = nav.lesson === "__ALL__" ? "All Lessons" : nav.lesson;
+
+  let bodyHtml = "";
+  if(q.type === "mc"){
+    const optOrder = shuffle(q.opts.map((_,i)=>i));
+    q._order = optOrder;
+    bodyHtml = `
+      <div class="options" id="options">
+        ${optOrder.map((oi,pos)=>`
+          <button class="opt" data-oi="${oi}">
+            <span class="tag">${LETTERS[pos]}</span><span>${q.opts[oi]}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+  } else {
+    bodyHtml = `
+      <div class="type-wrap">
+        <input type="text" class="type-input" id="typeInput" placeholder="Type your answer..." autocomplete="off">
+        <button class="btn-primary" id="submitBtn">Submit</button>
+        <div class="type-feedback" id="typeFeedback"></div>
+      </div>
+    `;
+  }
+
+  app.innerHTML = `
+    <div class="quiz-card">
+      <div class="top-row">
+        <span class="section-tag label-mono">${nav.subject.toUpperCase()} · ${tag.toUpperCase()}</span>
+        <span class="label-mono">Q${quizState.idx+1} / ${total} &nbsp;·&nbsp; SCORE ${quizState.score}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="timer-wrap">
+        <div class="timer-track"><div class="timer-fill" id="timerFill"></div></div>
+        <div class="timer-num label-mono" id="timerNum">${limit}</div>
+      </div>
+      <div class="q-text">${q.q}</div>
+      ${bodyHtml}
+      <div class="streak-note" id="streakNote">${quizState.streak>=2 ? quizState.streak+"-question streak" : ""}</div>
+    </div>
+  `;
+
+  if(q.type === "mc"){
+    document.querySelectorAll('.opt').forEach(btn=>{
+      btn.addEventListener('click', ()=> selectMCAnswer(parseInt(btn.dataset.oi)));
+    });
+  } else {
+    const input = document.getElementById('typeInput');
+    const submit = document.getElementById('submitBtn');
+    submit.addEventListener('click', ()=> selectTypeAnswer(input.value));
+    input.addEventListener('keydown', (e)=>{ if(e.key === "Enter") selectTypeAnswer(input.value); });
+    input.focus();
+  }
+
+  startTimer(limit, q.type);
+}
+
+function startTimer(limit, type){
+  const fill = document.getElementById('timerFill');
+  const num = document.getElementById('timerNum');
+  quizState.timer = setInterval(()=>{
+    quizState.timeLeft -= 1;
+    if(num) num.textContent = Math.max(quizState.timeLeft,0);
+    if(fill){
+      const pct = Math.max(quizState.timeLeft,0)/limit*100;
+      fill.style.width = pct+"%";
+      fill.style.background = quizState.timeLeft<=5 ? "var(--wrong)" : "var(--amber)";
+    }
+    if(quizState.timeLeft<=0){
+      clearInterval(quizState.timer);
+      if(!quizState.answered){
+        if(type === "mc") selectMCAnswer(null);
+        else selectTypeAnswer(document.getElementById('typeInput') ? document.getElementById('typeInput').value : "");
+      }
+    }
+  },1000);
+}
+
+function tallyResult(isCorrect){
+  const q = quizState.questions[quizState.idx];
+  const part = nav.lesson === "__ALL__" ? "All Lessons" : nav.lesson;
+  if(!quizState.partCounts[part]) quizState.partCounts[part] = {correct:0,total:0};
+  quizState.partCounts[part].total += 1;
+  if(isCorrect){
+    quizState.score += 1;
+    quizState.streak += 1;
+    quizState.bestStreak = Math.max(quizState.bestStreak, quizState.streak);
+    quizState.partCounts[part].correct += 1;
+  } else {
+    quizState.streak = 0;
+  }
+}
+
+function selectMCAnswer(chosenIdx){
+  if(quizState.answered) return;
+  quizState.answered = true;
+  clearInterval(quizState.timer);
+  const q = quizState.questions[quizState.idx];
+  const isCorrect = chosenIdx === q.correct;
+  tallyResult(isCorrect);
+
+  document.querySelectorAll('.opt').forEach(btn=>{
+    const oi = parseInt(btn.dataset.oi);
+    btn.disabled = true;
+    if(oi === q.correct) btn.classList.add('correct');
+    else if(oi === chosenIdx) btn.classList.add('wrong');
+    else btn.classList.add('dim');
+  });
+
+  showNote(isCorrect, chosenIdx===null);
+  advanceSoon();
+}
+
+function selectTypeAnswer(rawValue){
+  if(quizState.answered) return;
+  quizState.answered = true;
+  clearInterval(quizState.timer);
+  const q = quizState.questions[quizState.idx];
+  const given = normalize(rawValue || "");
+  const isCorrect = q.answers.some(a => normalize(a) === given);
+  tallyResult(isCorrect);
+
+  const input = document.getElementById('typeInput');
+  const feedback = document.getElementById('typeFeedback');
+  const submit = document.getElementById('submitBtn');
+  if(input) input.disabled = true;
+  if(submit) submit.disabled = true;
+  if(input) input.classList.add(isCorrect ? 'correct' : 'wrong');
+  if(feedback){
+    feedback.classList.add(isCorrect ? 'correct' : 'wrong');
+    feedback.textContent = isCorrect ? "Correct" : `Correct answer: ${q.answers[0]}`;
+  }
+
+  showNote(isCorrect, given === "");
+  advanceSoon();
+}
+
+function showNote(isCorrect, timedOut){
+  const note = document.getElementById('streakNote');
+  if(!note) return;
+  note.textContent = isCorrect
+    ? (quizState.streak>=2 ? quizState.streak+"-question streak" : "Correct")
+    : (timedOut ? "Time's up" : "Not quite");
+  note.style.color = isCorrect ? "var(--cyan)" : "var(--wrong)";
+}
+
+function advanceSoon(){
+  setTimeout(()=>{
+    if(quizState.idx < quizState.questions.length-1){
+      quizState.idx += 1;
+      renderQuestion();
+    } else {
+      renderEnd();
+    }
+  }, 1400);
+}
+
+function renderEnd(){
+  clearInterval(quizState.timer);
+  const total = quizState.questions.length;
+  const pct = Math.round((quizState.score/total)*100);
+  const app = document.getElementById('app');
+
+  const rows = Object.keys(quizState.partCounts).map(part=>{
+    const c = quizState.partCounts[part];
+    return `<div class="row"><span>${part}</span><span>${c.correct} / ${c.total}</span></div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="trace-row"><div class="node"></div><div class="line"></div><div class="node"></div></div>
+    <div class="end-card">
+      <div class="kicker label-mono">RESULTS · ${nav.term} · ${nav.subject}</div>
+      <div class="score-big">${quizState.score}/${total}</div>
+      <div class="score-sub">${pct}% correct &nbsp;·&nbsp; best streak ${quizState.bestStreak}</div>
+      <div class="breakdown">${rows}</div>
+      <button class="btn-primary" id="retryBtn">Retry this quiz</button>
+      <button class="btn-secondary" id="menuBtn">Back to menu</button>
+    </div>
+  `;
+  document.getElementById('retryBtn').onclick = startSelectedQuiz;
+  document.getElementById('menuBtn').onclick = renderTermMenu;
+}
+
+renderTermMenu();
+</script>
+</body>
+</html>
